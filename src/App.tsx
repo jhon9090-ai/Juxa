@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NoteUploader } from './components/NoteUploader';
 import { ArticleViewer } from './components/ArticleViewer';
 import { LibraryDrawer } from './components/LibraryDrawer';
-import { enhanceNote, EnhancedNote } from './services/geminiService';
+import { enhanceNote } from './services/geminiService';
 import { saveNotebook, EnhancedNotebook } from './services/db';
 import { ChevronLeft, Share2, Sparkles, AlertCircle, Compass, Cpu, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -61,10 +61,12 @@ export default function App() {
     setError(null);
   };
 
+  const isHomeScreen = !isLoading && !enhancedNote;
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className={isHomeScreen ? "min-h-screen bg-[#111426] flex flex-col font-sans" : "min-h-screen bg-slate-50 flex flex-col font-sans"}>
       {/* Header */}
-      <header className="d8 flex items-center justify-between px-4 md:px-8">
+      <header className={isHomeScreen ? "mx-auto mt-4 flex h-16 w-[calc(100%-2rem)] max-w-7xl items-center justify-between rounded-full border border-white/10 bg-slate-950/70 px-4 text-white shadow-2xl shadow-black/25 backdrop-blur-xl md:px-5" : "d8 flex items-center justify-between px-4 md:px-8"}>
         <div className="flex items-center gap-4">
           {enhancedNote && (
             <button 
@@ -75,32 +77,38 @@ export default function App() {
               <ChevronLeft className="w-6 h-6" />
             </button>
           )}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md">
-              <Sparkles className="w-5 h-5 text-indigo-600" />
+          <div className="flex items-center gap-3">
+            <div className={isHomeScreen ? "flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-200 to-amber-200 text-slate-950 shadow-lg" : "w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md"}>
+              {isHomeScreen ? <span className="text-sm font-black">J</span> : <Sparkles className="w-5 h-5 text-indigo-600" />}
             </div>
-            <span className="text-xl font-black text-white tracking-tight">Juxa AI</span>
+            <span className={isHomeScreen ? "text-base font-black text-white tracking-tight" : "text-xl font-black text-white tracking-tight"}>Juxa{!isHomeScreen && ' AI'}</span>
           </div>
         </div>
+        {isHomeScreen && (
+          <nav className="hidden items-center gap-8 text-sm font-bold text-slate-400 md:flex">
+            <a href="#upload" className="transition hover:text-white">Upload</a>
+            <a href="#history" className="transition hover:text-white">History</a>
+          </nav>
+        )}
         <div className="flex items-center gap-1">
           {/* History Drawer Trigger button */}
           <button 
             type="button"
             onClick={() => setIsDrawerOpen(true)}
-            className="d48 d66 flex items-center justify-center transition-all hover:bg-white/20" 
+            className={isHomeScreen ? "flex h-10 w-10 items-center justify-center rounded-full text-slate-300 transition-all hover:bg-white/10 hover:text-white" : "d48 d66 flex items-center justify-center transition-all hover:bg-white/20"} 
             title="Open Offine Library"
           >
             <History className="w-5 h-5" />
           </button>
           
-          <button className="d48 d66 flex items-center justify-center transition-all hover:bg-white/20" aria-label="Share">
-            <Share2 className="w-5 h-5" />
+          <button type="button" onClick={() => isHomeScreen && document.getElementById('upload')?.scrollIntoView({ behavior: 'smooth' })} className={isHomeScreen ? "hidden h-10 items-center justify-center rounded-full px-5 text-sm font-black text-slate-950 bg-white transition-all hover:bg-cyan-100 sm:flex" : "d48 d66 flex items-center justify-center transition-all hover:bg-white/20"} aria-label={isHomeScreen ? "Start studying" : "Share"}>
+            {isHomeScreen ? <span>Start studying</span> : <Share2 className="w-5 h-5" />}
           </button>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow pt-16 md:pt-20">
+      <main className={isHomeScreen ? "flex-grow" : "flex-grow pt-16 md:pt-20"}>
         <AnimatePresence mode="wait">
           {isLoading ? (
             <motion.div
@@ -161,9 +169,9 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="py-12"
+              className=""
             >
-              <NoteUploader onEnhance={handleEnhance} isLoading={isLoading} />
+              <NoteUploader onEnhance={handleEnhance} isLoading={isLoading} onSelectNotebook={handleSelectNotebook} />
               
               {error && (
                 <div className="max-w-3xl mx-auto mt-6 p-5 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-700 animate-in shake duration-300">
@@ -194,6 +202,7 @@ export default function App() {
       />
 
       {/* Footer */}
+      {!isHomeScreen && (
       <footer className="d19 py-12 mt-auto">
         <div className="d0 text-center">
           <div className="d36 flex justify-center gap-6 mb-4">
@@ -207,6 +216,7 @@ export default function App() {
           </div>
         </div>
       </footer>
+      )}
     </div>
   );
 }
