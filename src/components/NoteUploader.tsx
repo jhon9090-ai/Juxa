@@ -2,12 +2,12 @@ import React, { useState, useRef, DragEvent, useEffect } from 'react';
 import { 
   Upload, FileText, Send, Sparkles, File, Trash2, 
   ChevronDown, ChevronUp, AlertCircle, RefreshCw, FileUp,
-  Cpu, BookOpen, Clock, Zap, Search, Layers, Compass, ArrowRight
+  Cpu, BookOpen, Clock, Zap, Search, Layers, Compass, ArrowRight,
+  BookMarked, HelpCircle, GraduationCap, ClipboardList, MoveRight, HelpCircle as HelpIcon
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getAllNotebooks, deleteNotebook, EnhancedNotebook } from '../services/db';
 
-// Helper inside App to load PDF CDN script dynamically to prevent bundler problems
 declare global {
   interface Window {
     pdfjsLib?: any;
@@ -32,7 +32,7 @@ export const NoteUploader: React.FC<NoteUploaderProps> = ({ onEnhance, isLoading
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch recent notebooks for the gorgeous Knowledge Vault section
+  // Fetch from the local IndexedDB database
   const fetchRecentNotebooks = async () => {
     try {
       const data = await getAllNotebooks();
@@ -58,7 +58,7 @@ export const NoteUploader: React.FC<NoteUploaderProps> = ({ onEnhance, isLoading
     }
   };
 
-  // Load PDF parser on demand
+  // Safe CDN loader for PDF parser
   const loadPdfLibrary = (): Promise<any> => {
     return new Promise((resolve, reject) => {
       if (window.pdfjsLib) {
@@ -134,7 +134,7 @@ export const NoteUploader: React.FC<NoteUploaderProps> = ({ onEnhance, isLoading
           content: cumulativeText
         });
       } else {
-        throw new Error("File extension not supported. Please upload a PDF, TXT or MD note.");
+        throw new Error("Unsupported format. Please choose a PDF, TXT or MD document.");
       }
     } catch (err: any) {
       console.error(err);
@@ -201,7 +201,7 @@ export const NoteUploader: React.FC<NoteUploaderProps> = ({ onEnhance, isLoading
 4. Ampere's Circuital Law (with Maxwell's correction): § H * dl = I + dD/dt, specifying current flow and displacement currents.`;
     } else if (sampleType === 'krebs') {
       sampleContent = `The Citric Acid Cycle (Krebs Cycle) occurs inside the mitochondrial matrix and extracts high-energy electrons to feed the respiratory chain.
-Key biochemical milestones:
+Key milestones:
 - Condensation: Acetyl-CoA (2C) joins Oxaloacetate (4C) catalyzed by citrate synthase to synthesize Citrate (6C).
 - Isomerization: Citrate is rearranged to Isocitrate.
 - First Oxidative Decarboxylation: Isocitrate dehydrogenase oxidizes Isocitrate to alpha-ketoglutarate, releasing CO2 and reducing NAD+ to NADH.
@@ -218,7 +218,6 @@ Key biochemical milestones:
 
   const activeContentExists = !!(extractedFile?.content || pastedText.trim());
 
-  // Filter vault notebooks
   const filteredVault = recentNotebooks.filter(notebook => {
     if (!searchVaultQuery) return true;
     const query = searchVaultQuery.toLowerCase();
@@ -227,187 +226,167 @@ Key biochemical milestones:
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 animate-in fade-in duration-500">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 py-10 animate-in fade-in duration-500">
       
-      {/* Background decoration */}
-      <div className="absolute top-10 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[450px] bg-gradient-to-tr from-indigo-500/5 via-violet-500/5 to-pink-500/5 blur-3xl rounded-full -z-10 pointer-events-none" />
+      {/* Decorative Radial Ambiance */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-[380px] bg-gradient-to-b from-indigo-500/5 via-violet-500/[0.02] to-transparent blur-3xl rounded-full -z-10 pointer-events-none" />
 
-      {/* Futuristic Hero Section */}
-      <div className="relative text-center mb-12 max-w-3xl mx-auto pt-6">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-bold mb-4 shadow-lg ring-1 ring-slate-800">
-          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
-          <span className="uppercase tracking-widest text-[9px] font-mono">Next-Generation Revision Engine</span>
+      {/* Reimagined Minimal & Hero Header Section */}
+      <div className="text-center mb-16 max-w-4xl mx-auto pt-4">
+        
+        {/* Modern micro-tag with clean glow */}
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50/80 rounded-full border border-indigo-100 text-[11px] text-indigo-700 font-bold mb-6 shadow-sm">
+          <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-ping"></span>
+          <span className="uppercase tracking-widest text-[9px]">Aesthetic Vector & Math Co-Pilot</span>
         </div>
         
-        <h1 className="text-5xl md:text-7xl font-extrabold text-slate-800 tracking-tight leading-none mb-3">
+        <h1 className="text-6xl sm:text-7xl font-semibold tracking-tight text-slate-900 leading-tight mb-4">
           Juxa
         </h1>
-        <p className="text-slate-500 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
-          Upgrade regular study booklets with animated dark vector coordinate demonstrations, mathematical equations, and active cognitive tests.
+        
+        <p className="text-slate-500 text-lg max-w-2xl mx-auto leading-relaxed font-normal">
+          A premium scholastic tool that renders beautiful math calculations, diagnostic quizzes, and animated vector demonstrations to transform regular notes.
         </p>
-
-        {/* Quick Sandboxed Concept Previews */}
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-          <span className="text-xs text-slate-400 font-medium mr-1">No notes on hand? Try instant templates:</span>
-          <button 
-            onClick={() => triggerSample('maxwell')}
-            className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/50 rounded-full font-bold transition-all shadow-sm flex items-center gap-1.5"
-          >
-            <Zap className="w-3.5 h-3.5" />
-            <span>Maxwell's Electromagnetism</span>
-          </button>
-          <button 
-            onClick={() => triggerSample('krebs')}
-            className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-cyan-600 hover:border-cyan-400 hover:bg-cyan-50/50 rounded-full font-bold transition-all shadow-sm flex items-center gap-1.5"
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>The Krebs Cycle</span>
-          </button>
-          <button 
-            onClick={() => triggerSample('kepler')}
-            className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-violet-600 hover:border-violet-400 hover:bg-violet-50/50 rounded-full font-bold transition-all shadow-sm flex items-center gap-1.5"
-          >
-            <Compass className="w-3.5 h-3.5" />
-            <span>Kepler's Astrophysics</span>
-          </button>
-        </div>
       </div>
 
-      {/* Main Grid: Left Side Input Panel, Right Side Elegant Knowledge Vault */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {/* Main Grid Workspace Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-stretch">
         
-        {/* Left Side: Drag, drop & parse control card (7 cols) */}
-        <div className="lg:col-span-7 space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl overflow-hidden transition-all duration-300">
+        {/* Left main interactive workspace (7 cols) */}
+        <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
+          
+          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl overflow-hidden flex flex-col flex-1">
             
-            {/* Header tab */}
-            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100">
-                  <Cpu className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-800 text-sm">Transform Workspace</h3>
-                  <p className="text-[11px] text-slate-400 font-medium">Draft dynamic math and graphics</p>
-                </div>
+            {/* Elegant Tab System */}
+            <div className="pt-6 px-6 pb-2 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => setShowPastedTextOption(false)}
+                  className={cn(
+                    "pb-3 text-sm font-bold border-b-2 transition-all px-1",
+                    !showPastedTextOption 
+                      ? "text-indigo-600 border-indigo-600" 
+                      : "text-slate-400 border-transparent hover:text-slate-600"
+                  )}
+                >
+                  Document Parser
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPastedTextOption(true)}
+                  className={cn(
+                    "pb-3 text-sm font-bold border-b-2 transition-all px-1",
+                    showPastedTextOption 
+                      ? "text-indigo-600 border-indigo-600" 
+                      : "text-slate-400 border-transparent hover:text-slate-600"
+                  )}
+                >
+                  Direct Paste
+                </button>
               </div>
 
-              <div className="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg font-bold">
-                Juxa Core v1
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                <Cpu className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Client-Side Compilation</span>
               </div>
             </div>
 
-            {/* Drag Zone */}
-            <div className="p-6">
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange}
-                accept=".pdf,.txt,.md"
-                className="hidden" 
-              />
-              
-              {!extractedFile ? (
-                <div 
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={handleTriggerFileInput}
-                  className={cn(
-                    "border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300",
-                    isDragging 
-                      ? "border-indigo-500 bg-indigo-50/50 scale-[0.98] shadow-inner" 
-                      : "border-slate-200 bg-slate-50/40 hover:bg-slate-50 hover:border-slate-300",
-                    extractorLoading && "pointer-events-none opacity-60"
-                  )}
-                >
-                  {extractorLoading ? (
-                    <div className="flex flex-col items-center py-6">
-                      <div className="relative">
-                        <div className="w-14 h-14 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                          <FileUp className="w-5 h-5 text-indigo-500 animate-bounce" />
+            {/* Content pane depending on active tab selection */}
+            <div className="p-6 flex-1 flex flex-col justify-center">
+              {!showPastedTextOption ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileChange}
+                    accept=".pdf,.txt,.md"
+                    className="hidden" 
+                  />
+                  
+                  {!extractedFile ? (
+                    <div 
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={handleTriggerFileInput}
+                      className={cn(
+                        "border border-slate-200 bg-slate-50/50 hover:bg-slate-50 border-dashed rounded-2xl p-12 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 min-h-[240px]",
+                        isDragging && "border-indigo-500 bg-indigo-50/60 scale-[0.99] shadow-inner",
+                        extractorLoading && "pointer-events-none opacity-60"
+                      )}
+                    >
+                      {extractorLoading ? (
+                        <div className="flex flex-col items-center py-4">
+                          <div className="relative mb-3">
+                            <div className="w-12 h-12 border-3 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                          </div>
+                          <h4 className="font-bold text-slate-800 text-sm">Decoding pdf layout...</h4>
+                          <span className="text-[11px] text-slate-400 mt-1">Reading elements directly block-by-block</span>
                         </div>
-                      </div>
-                      <h4 className="mt-4 font-bold text-slate-800">Reading doc page-by-page...</h4>
-                      <p className="text-xs text-slate-400 max-w-sm mt-1">Downloading libraries & compiling structures client-side</p>
+                      ) : (
+                        <div className="flex flex-col items-center">
+                          <div className="w-12 h-12 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-indigo-600 shadow-sm transition-transform hover:scale-105 mb-4">
+                            <Upload className="w-5 h-5" />
+                          </div>
+                          <h4 className="font-bold text-slate-800 text-sm">Upload Academic Note</h4>
+                          <p className="text-slate-400 text-xs max-w-sm mt-1.5 mb-3 leading-relaxed">
+                            Drag your PDF file here, or click to choose from directory. Supports standard lecture slips, notes & formulas.
+                          </p>
+                          
+                          <div className="flex gap-2 text-[10px] text-slate-450 font-bold bg-white px-3 py-1 border border-slate-100 rounded-full shadow-sm">
+                            <span>PDF</span>
+                            <span className="text-slate-350">•</span>
+                            <span>MARKDOWN</span>
+                            <span className="text-slate-350">•</span>
+                            <span>TEXT</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center">
-                      <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mb-4 text-indigo-600 transition-transform hover:scale-110">
-                        <Upload className="w-6 h-6" />
+                    <div className="p-4 border border-indigo-100 bg-indigo-50/20 rounded-2xl flex items-center justify-between shadow-sm animate-in zoom-in-95 duration-200">
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100 flex-shrink-0">
+                          <File className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-slate-800 text-sm truncate">{extractedFile.name}</h4>
+                          <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500">
+                            <span>{extractedFile.size}</span>
+                            <span>•</span>
+                            <span className="text-emerald-600 font-bold">Successfully Parsed</span>
+                          </div>
+                        </div>
                       </div>
-                      <h4 className="font-bold text-slate-800 text-base">Upload study notebook</h4>
-                      <p className="text-slate-400 text-xs max-w-md mt-1 mb-4">
-                        Drag & drop a <span className="font-medium text-slate-600">PDF, TXT, or MD</span> file, or click to choose path.
-                      </p>
-                      
-                      <div className="flex items-center gap-1.5 bg-slate-100 rounded-lg p-1">
-                        <span className="text-[10px] text-slate-500 font-bold px-2 py-0.5 rounded">PDF</span>
-                        <span className="text-[10px] text-slate-500 font-bold px-2 py-0.5 rounded">MD</span>
-                        <span className="text-[10px] text-slate-500 font-bold px-2 py-0.5 rounded">TXT</span>
-                      </div>
+                      <button 
+                        type="button" 
+                        onClick={clearFile}
+                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                        title="Dismiss notebook"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {extractionError && (
+                    <div className="mt-3 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-start gap-2 text-rose-700 text-sm animate-in slide-in-from-top-1">
+                      <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>{extractionError}</span>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="p-4 border border-indigo-100 bg-indigo-50/30 rounded-2xl flex items-center justify-between shadow-sm animate-in zoom-in-95 duration-200">
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100 flex-shrink-0">
-                      <File className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="font-bold text-slate-800 text-sm truncate">{extractedFile.name}</h4>
-                      <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500">
-                        <span>{extractedFile.size}</span>
-                        <span>•</span>
-                        <span className="text-emerald-600 font-bold">Ready</span>
-                      </div>
-                    </div>
-                  </div>
-                  <button 
-                    type="button" 
-                    onClick={clearFile}
-                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                    title="Discard uploaded file"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
-              {extractionError && (
-                <div className="mt-3 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-start gap-2 text-rose-700 text-sm animate-in slide-in-from-top-1">
-                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>{extractionError}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Collapsible Direct Paste Area */}
-            <div className="border-t border-slate-100 bg-slate-50/40 px-6 py-4">
-              <button
-                type="button"
-                onClick={() => setShowPastedTextOption(!showPastedTextOption)}
-                className="flex items-center justify-between w-full text-slate-500 hover:text-slate-800 transition-colors text-xs font-semibold py-1"
-              >
-                <div className="flex items-center gap-2">
-                  <FileText className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Alternatively paste text notes directly</span>
-                </div>
-                {showPastedTextOption ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-
-              {showPastedTextOption && (
-                <div className="mt-3 pb-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex-1 flex flex-col justify-center animate-in fade-in duration-300">
                   <textarea
                     value={pastedText}
                     onChange={(e) => setPastedText(e.target.value)}
-                    placeholder="Enter mathematical steps, formulas, chemical cycles, or anatomy steps..."
-                    className="w-full h-36 p-4 text-slate-700 bg-white border border-slate-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 rounded-2xl transition-all outline-none resize-none text-xs leading-relaxed"
+                    placeholder="Enter mathematical formulas, biology cycles, chemistry structures or astrophysics theories directly..."
+                    className="w-full h-44 p-4 text-slate-755 bg-slate-50/50 border border-slate-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 rounded-xl transition-all outline-none resize-none text-xs leading-relaxed"
                     disabled={isLoading}
                   />
-                  <div className="mt-1 flex justify-between text-[10px] text-slate-400 font-mono">
+                  <div className="mt-1.5 flex justify-between text-[10px] text-slate-400 font-medium">
                     <span>{pastedText.length} characters</span>
                     <span>Supports unicode equations</span>
                   </div>
@@ -415,26 +394,31 @@ Key biochemical milestones:
               )}
             </div>
 
-            {/* Dispatch Row */}
-            <div className="px-6 py-5 bg-slate-50/90 border-t border-slate-100 flex items-center justify-end">
+            {/* Launch Workspace controls */}
+            <div className="px-6 py-5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                <BookMarked className="w-4 h-4 text-slate-400" />
+                <span>Zero-cloud footprint</span>
+              </span>
+
               <button
                 type="button"
                 onClick={triggerProcess}
                 disabled={isLoading || !activeContentExists}
                 className={cn(
-                  "flex items-center gap-2 px-8 py-3.5 bg-indigo-600 text-white font-bold text-sm rounded-xl shadow-lg hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none",
+                  "flex items-center gap-2 px-6 py-3 bg-slate-900 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg hover:bg-slate-800 active:scale-95 transition-all disabled:opacity-40 disabled:pointer-events-none",
                   isLoading && "animate-pulse"
                 )}
               >
                 {isLoading ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Modeling graphics...</span>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Processing Juxa...</span>
                   </>
                 ) : (
                   <>
-                    <Send className="w-4 h-4" />
-                    <span>Generate Juxa Notebook</span>
+                    <span>Generate Notebook</span>
+                    <MoveRight className="w-3.5 h-3.5" />
                   </>
                 )}
               </button>
@@ -442,112 +426,155 @@ Key biochemical milestones:
 
           </div>
 
-          {/* Quick Technical features indicators */}
-          <div className="p-5 bg-slate-900 text-slate-300 rounded-3xl flex items-center justify-between border border-slate-800 shadow-md">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl">
-                <Sparkles className="w-5 h-5 animate-pulse" />
-              </div>
-              <div>
-                <span className="block text-xs font-black tracking-wider uppercase text-slate-400">Illustrative engine</span>
-                <span className="text-[11px] text-slate-500">Vector rendering outputs custom coordinate coordinates.</span>
-              </div>
+          {/* Clean illustrative status banner */}
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/60 flex items-center justify-between text-xs text-slate-500">
+            <div className="flex items-center gap-2">
+              <GraduationCap className="w-4 h-4 text-indigo-500" />
+              <span>Includes mock revision quizzes, feedback, coordinates, and math.</span>
             </div>
-            <span className="text-[10px] bg-slate-800 text-slate-400 font-mono px-2 py-0.5 rounded border border-slate-700">SVG API Active</span>
           </div>
         </div>
 
-        {/* Right Side: Gorgeous Knowledge Vault Section (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl overflow-hidden min-h-[480px] flex flex-col">
-            
-            {/* Vault title */}
-            <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/40 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
-                  <BookOpen className="w-4.5 h-4.5" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-slate-800 text-sm">Knowledge Vault</h3>
-                  <p className="text-[11px] text-slate-400 font-medium">Durable offline database</p>
-                </div>
+        {/* Right Obsidian Knowledge Vault & Quick templates (5 cols) */}
+        <div className="lg:col-span-5 flex flex-col justify-between space-y-6">
+          
+          {/* Quick interactive Templates */}
+          <div className="bg-slate-900 text-white rounded-3xl p-6 border border-slate-800 shadow-xl flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase tracking-widest mb-3">
+                <Zap className="w-4 h-4 animate-pulse" />
+                <span>Scholastic Demonstration Kits</span>
               </div>
-              
-              <span className="text-xs bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full">
-                {recentNotebooks.length} notebooks
+              <h3 className="font-extrabold text-white text-base tracking-tight mb-2">No notes nearby?</h3>
+              <p className="text-slate-400 text-xs leading-relaxed mb-4">
+                Launch structured textbook notes featuring inline dynamic vector equations instantly.
+              </p>
+            </div>
+
+            <div className="space-y-2.5">
+              <button 
+                onClick={() => triggerSample('maxwell')}
+                className="w-full text-left p-3 bg-slate-800/80 hover:bg-slate-800 hover:border-slate-700 border border-transparent rounded-2xl transition-all flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-[10px]">
+                    EM
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block font-bold text-xs text-white">Maxwell's Field Equations</span>
+                    <span className="text-[10px] text-slate-450 block">Astrophysics, integrals, derivatives</span>
+                  </div>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-405 group-hover:translate-x-1 transition-transform" />
+              </button>
+
+              <button 
+                onClick={() => triggerSample('krebs')}
+                className="w-full text-left p-3 bg-slate-800/80 hover:bg-slate-800 hover:border-slate-700 border border-transparent rounded-2xl transition-all flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-450 flex items-center justify-center font-medium text-[10px]">
+                    KB
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block font-bold text-xs text-white">Citric Acid Respirations</span>
+                    <span className="text-[10px] text-slate-450 block">Biochemical cycle, Krebs steps</span>
+                  </div>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-405 group-hover:translate-x-1 transition-transform" />
+              </button>
+
+              <button 
+                onClick={() => triggerSample('kepler')}
+                className="w-full text-left p-3 bg-slate-800/80 hover:bg-slate-800 hover:border-slate-700 border border-transparent rounded-2xl transition-all flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-violet-500/20 text-violet-400 flex items-center justify-center font-medium text-[10px]">
+                    KP
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block font-bold text-xs text-white">Kepler's Astrophysics</span>
+                    <span className="text-[10px] text-slate-450 block">Ellipses, eccentricity vectors</span>
+                  </div>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-405 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
+          </div>
+
+          {/* Gorgeous Durable Knowledge Vault */}
+          <div className="bg-white rounded-3xl border border-slate-200/95 shadow-xl overflow-hidden flex flex-col flex-1 min-h-[300px]">
+            
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-indigo-500" />
+                <span className="font-bold text-xs text-slate-800">Dynamic Knowledge Vault</span>
+              </div>
+              <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold">
+                {recentNotebooks.length} Saved
               </span>
             </div>
 
-            {/* Quick Filter Search inside Knowledge Vault */}
-            <div className="p-4 border-b border-slate-100 bg-white">
+            {/* Quick search input */}
+            <div className="p-3 bg-white border-b border-slate-100">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
                 <input
                   type="text"
-                  placeholder="Filter vault..."
+                  placeholder="Filter historic catalog..."
                   value={searchVaultQuery}
                   onChange={(e) => setSearchVaultQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-150 focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 rounded-xl transition-all outline-none text-xs placeholder-slate-450"
+                  className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-150 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 rounded-xl transition-all outline-none text-xs placeholder-slate-400"
                 />
               </div>
             </div>
 
-            {/* Vault List */}
-            <div className="flex-grow overflow-y-auto max-h-[350px] p-4 space-y-3 bg-slate-50/20">
+            {/* Notebook file tree */}
+            <div className="flex-1 overflow-y-auto max-h-[190px] p-3 space-y-2 bg-slate-50/20">
               {recentNotebooks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 px-6 text-center text-slate-450">
-                  <Layers className="w-8 h-8 text-slate-300 mb-2 stroke-[1.5]" />
-                  <span className="font-bold text-slate-700 text-xs">IndexedDB empty</span>
-                  <p className="text-[10px] text-slate-400 max-w-xs mt-1">
-                    Your generated documents will be captured automatically right here.
-                  </p>
+                <div className="py-10 text-center flex flex-col items-center justify-center text-slate-400">
+                  <ClipboardList className="w-8 h-8 mb-2 stroke-[1.5] text-slate-300" />
+                  <span className="font-bold text-xs text-slate-700">Offline Catalog Is Clean</span>
+                  <p className="text-[10px] text-slate-400 max-w-xs mt-0.5">Your transformations save locally automatically.</p>
                 </div>
               ) : filteredVault.length === 0 ? (
-                <div className="text-center py-12 text-xs text-slate-450 font-medium">
-                  No notebooks matched your query.
-                </div>
+                <div className="py-10 text-center text-xs text-slate-450 font-medium">No matches.</div>
               ) : (
                 filteredVault.map((notebook) => {
                   const words = notebook.htmlContent.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(Boolean).length;
                   const dateStr = new Date(notebook.createdAt).toLocaleDateString(undefined, {
                     month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit'
+                    day: 'numeric'
                   });
 
                   return (
                     <div 
                       key={notebook.id}
-                      onClick={() => onEnhance(notebook.htmlContent)} // Pre-load or select
-                      className="group p-3.5 bg-white border border-slate-200/80 hover:border-violet-300 hover:shadow-sm rounded-xl cursor-pointer transition-all duration-200"
+                      onClick={() => onEnhance(notebook.htmlContent)}
+                      className="group p-3 bg-white border border-slate-205 hover:border-indigo-300 hover:shadow-xs rounded-xl cursor-pointer transition-all duration-200 flex items-center justify-between"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h4 className="font-bold text-xs text-slate-800 tracking-tight group-hover:text-indigo-600 truncate">
-                            {notebook.title}
-                          </h4>
-                          <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-400">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              <span>{dateStr}</span>
-                            </span>
-                            <span>•</span>
-                            <span>{words} words</span>
-                          </div>
+                      <div className="min-w-0 pr-2">
+                        <span className="block font-bold text-xs text-slate-800 truncate group-hover:text-indigo-600">
+                          {notebook.title}
+                        </span>
+                        <div className="flex items-center gap-2 mt-1 text-[9px] text-slate-400">
+                          <span>{dateStr}</span>
+                          <span>•</span>
+                          <span>{words} words</span>
                         </div>
+                      </div>
 
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <button 
-                            type="button"
-                            onClick={(e) => handleDeleteNotebook(notebook.id, e)}
-                            className="p-1 text-slate-300 hover:text-red-500 hover:bg-rose-50 rounded transition-all opacity-0 group-hover:opacity-100"
-                            title="Delete permanently"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                          <div className="p-1 bg-slate-50 text-slate-400 group-hover:text-indigo-600 rounded">
-                            <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform" />
-                          </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteNotebook(notebook.id, e)}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-red-500 rounded transition"
+                          title="Purge"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                        <div className="p-1 text-slate-300 group-hover:text-indigo-600">
+                          <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform" />
                         </div>
                       </div>
                     </div>
@@ -556,53 +583,14 @@ Key biochemical milestones:
               )}
             </div>
 
-            {/* Bottom quick tip status bar */}
-            <div className="p-4 bg-slate-50 border-t border-slate-100 text-center text-[10px] text-slate-400 font-medium">
-              Offline IndexedDB storage ensures no notebook is ever lost.
+            <div className="p-3 bg-slate-50 border-t border-slate-100 text-center text-[9px] text-slate-400 font-medium">
+              Synchronizing with client IndexedDB subsystem.
             </div>
 
           </div>
+
         </div>
 
-      </div>
-
-      {/* Elegant Juxa Feature Grid details at base */}
-      <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 bg-white rounded-2xl border border-slate-150 shadow-sm hover:shadow-md transition-all duration-300">
-          <div className="mb-4">
-            <span className="p-3 rounded-xl bg-indigo-50 text-indigo-600 inline-block">
-              <Sparkles className="w-5 h-5" />
-            </span>
-          </div>
-          <h3 className="font-extrabold text-slate-800 text-sm mb-1.5">Intelligent Vector Plots</h3>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            Constructs detailed SVG models coordinates including orbiting satellites, Krebs respiration blocks, and force vector interactions.
-          </p>
-        </div>
-
-        <div className="p-6 bg-white rounded-2xl border border-slate-150 shadow-sm hover:shadow-md transition-all duration-300">
-          <div className="mb-4">
-            <span className="p-3 rounded-xl bg-violet-50 text-violet-600 inline-block font-mono font-black text-xs">
-              f(x)
-            </span>
-          </div>
-          <h3 className="font-extrabold text-slate-800 text-sm mb-1.5">Academic Typography & KaTeX</h3>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            Exquisitely aligns integrals, chemical formulations, and differential equations in premium, error-free LaTeX parameters.
-          </p>
-        </div>
-
-        <div className="p-6 bg-white rounded-2xl border border-slate-150 shadow-sm hover:shadow-md transition-all duration-300">
-          <div className="mb-4">
-            <span className="p-3 rounded-xl bg-cyan-50 text-cyan-600 inline-block">
-              <Compass className="w-5 h-5" />
-            </span>
-          </div>
-          <h3 className="font-extrabold text-slate-800 text-sm mb-1.5">Interactive Assessments</h3>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            Provides comprehensive diagnostic evaluations with rich instant answer checking, detailed rationales, and performance telemetry.
-          </p>
-        </div>
       </div>
 
     </div>

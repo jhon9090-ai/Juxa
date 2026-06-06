@@ -5,14 +5,9 @@
   --font-sans: "Inter", -apple-system, blinkmacsystemfont, "Segoe UI", roboto, oxygen, ubuntu, cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 }
 
-/* Provided Phyley Styles */
+/* Corrected Styles for Tailwind Protection */
 * {
-    margin: 0;
-    padding: 0;
-    border: 0;
-    box-shadow: none;
     box-sizing: border-box;
-    color: inherit
 }
 
 html {
@@ -21,19 +16,6 @@ html {
     color: #303030;
     font: 400 16px/1.4 sans-serif;
     word-wrap: break-word
-}
-
-@media (min-width: 500px) {
-    html {
-        font-size:18px
-    }
-}
-
-@media (min-width: 680px) {
-    html {
-        font-size:20px;
-        line-height: 1.5
-    }
 }
 
 body {
