@@ -1,6 +1,5 @@
 {
   "name": "Juxa",
   "description": "A high-fidelity academic note-taking and revision portal with automated vector diagrams, equations, and active assessments.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "requestFramePermissions": []
 }
