@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Modern Gradient from Indigo to Purple-Violet -->
+    <linearGradient id="juxa-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.15" />
+    </filter>
+  </defs>
+  
+  <!-- Gradient Circular Base -->
+  <circle cx="256" cy="256" r="248" fill="url(#juxa-grad)" />
+  
+  <!-- Modern minimalist inner ring overlay -->
+  <circle cx="256" cy="256" r="226" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="4" />
+  
+  <!-- Elegant geometric bold J -->
+  <path 
+    d="M 366,110 L 366,300 C 366,360 326,400 256,400 C 186,400 146,360 146,300 L 206,300 C 206,330 226,350 256,350 C 286,350 306,330 306,300 L 306,110 Z" 
+    fill="#ffffff" 
+    filter="url(#shadow)"
+  />
+</svg>

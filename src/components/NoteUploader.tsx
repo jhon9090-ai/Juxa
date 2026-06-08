@@ -18,9 +18,18 @@ declare global {
 interface NoteUploaderProps {
   onEnhance: (notes: string) => void;
   isLoading: boolean;
+  activeModelName: string;
+  onOpenSettings: () => void;
+  onSelectNotebook: (notebook: EnhancedNotebook) => void;
 }
 
-export const NoteUploader: React.FC<NoteUploaderProps> = ({ onEnhance, isLoading }) => {
+export const NoteUploader: React.FC<NoteUploaderProps> = ({ 
+  onEnhance, 
+  isLoading,
+  activeModelName,
+  onOpenSettings,
+  onSelectNotebook
+}) => {
   const [pastedText, setPastedText] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [extractedFile, setExtractedFile] = useState<{ name: string; size: string; content: string } | null>(null);
@@ -286,9 +295,20 @@ Key milestones:
                 </button>
               </div>
 
-              <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                <Cpu className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Client-Side Compilation</span>
+              <div className="hidden sm:flex items-center gap-3 text-xs text-slate-400 font-medium">
+                <button
+                  type="button"
+                  onClick={onOpenSettings}
+                  className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full border border-indigo-100 font-bold text-[10px] cursor-pointer hover:bg-indigo-100 transition-all duration-200"
+                  title="Configure AI Models"
+                >
+                  <Cpu className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
+                  <span className="truncate max-w-[150px]">{activeModelName}</span>
+                </button>
+                <div className="flex items-center gap-1.5">
+                  <BookMarked className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Client-Side Compilation</span>
+                </div>
               </div>
             </div>
 
@@ -550,7 +570,7 @@ Key milestones:
                   return (
                     <div 
                       key={notebook.id}
-                      onClick={() => onEnhance(notebook.htmlContent)}
+                      onClick={() => onSelectNotebook(notebook)}
                       className="group p-3 bg-white border border-slate-205 hover:border-indigo-300 hover:shadow-xs rounded-xl cursor-pointer transition-all duration-200 flex items-center justify-between"
                     >
                       <div className="min-w-0 pr-2">

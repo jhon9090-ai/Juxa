@@ -5,6 +5,296 @@
   --font-sans: "Inter", -apple-system, blinkmacsystemfont, "Segoe UI", roboto, oxygen, ubuntu, cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 }
 
+/* Master theme transitions for color changes */
+body, .min-h-screen, .bg-slate-50, .bg-white, .border, .text-slate-900, .text-slate-800, .text-slate-700, .text-slate-600, .text-slate-500, .text-slate-400, .juxa-note-container, .prose, .mcq-container, .mcq-question, .mcq-option, input, textarea, header, footer {
+    transition: background-color 0.45s cubic-bezier(0.4, 0, 0.2, 1), 
+                color 0.45s cubic-bezier(0.4, 0, 0.2, 1), 
+                border-color 0.45s cubic-bezier(0.4, 0, 0.2, 1), 
+                box-shadow 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+                fill 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Premium Textbook Note Sizing (Matches Reference Image) */
+.juxa-note-container {
+    font-family: var(--font-sans);
+    font-size: 1.15rem !important; /* Exactly matching the beautiful spacious size in the image */
+    line-height: 1.8 !important;
+    color: #1e293b; /* Crisp dark charcoal for reading slate */
+    letter-spacing: -0.01em;
+}
+
+.juxa-note-container p {
+    font-size: 1.15rem !important;
+    line-height: 1.8 !important;
+    margin-top: 1.25rem !important;
+    margin-bottom: 1.25rem !important;
+    color: #334155 !important;
+}
+
+.juxa-note-container h1 {
+    font-size: 2.5rem !important; /* Prominent display title exactly like the image */
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+    line-height: 1.15 !important;
+    color: #0f172a !important;
+    margin-top: 2.5rem !important;
+    margin-bottom: 1rem !important;
+}
+
+.juxa-note-container h2 {
+    font-size: 1.75rem !important; /* Elegant sub-headings */
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+    line-height: 1.25 !important;
+    color: #1e293b !important;
+    margin-top: 2.25rem !important;
+    margin-bottom: 1rem !important;
+}
+
+.juxa-note-container h3 {
+    font-size: 1.35rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em !important;
+    color: #334155 !important;
+    margin-top: 1.75rem !important;
+    margin-bottom: 0.75rem !important;
+}
+
+.juxa-note-container ul, .juxa-note-container ol {
+    margin-top: 1rem !important;
+    margin-bottom: 1rem !important;
+    padding-left: 1.75rem !important;
+}
+
+.juxa-note-container li {
+    font-size: 1.15rem !important;
+    line-height: 1.8 !important;
+    margin-bottom: 0.5rem !important;
+    color: #475569 !important;
+}
+
+/* Interactive SVG Element Classes */
+.svg-interactive-group {
+    cursor: pointer;
+    pointer-events: all;
+    outline: none;
+}
+
+/* On hover, reveal vectors, labels, custom colors or shine */
+.svg-interactive-group:hover .hover-glow {
+    filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.85)) !important;
+    transform: scale(1.04);
+    transform-origin: center;
+    transition: transform 0.25s ease, filter 0.25s ease;
+}
+
+.svg-interactive-group:hover .hover-highlight {
+    stroke: #ff80b2 !important;
+    stroke-width: 3.5px !important;
+    filter: drop-shadow(0 0 6px rgba(255, 128, 178, 0.7));
+    transition: stroke 0.25s ease, stroke-width 0.25s ease, filter 0.25s ease;
+}
+
+.svg-interactive-group:hover .hover-color-fill {
+    fill: #ff80b2 !important;
+    transition: fill 0.25s ease;
+}
+
+.svg-interactive-group:hover .hover-text-reveal {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateY(0);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Animation hover states inside interactive SVGs */
+.svg-interactive-group:hover .hover-animate-spin {
+    animation: spin 3s linear infinite;
+    transform-origin: center;
+}
+
+.svg-interactive-group:hover .hover-animate-pulse {
+    animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Tab-focus interactive dynamics for tap-activation on mobile/tablet */
+.svg-interactive-group:focus .focus-reveal {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateY(0);
+}
+
+.svg-interactive-group:focus .focus-color {
+    fill: #9f5 !important;
+    stroke: #9f5 !important;
+}
+
+/* Complete Dark Mode Rules (Eradicates color leakage or background spillage) */
+.dark {
+    color-scheme: dark;
+}
+
+.dark body, .dark .min-h-screen, .dark .bg-slate-50 {
+    background-color: #080b11 !important; /* Ultra-slick space black core background */
+    color: #e2e8f0 !important;
+}
+
+.dark .bg-white {
+    background-color: #0f1420 !important; /* Premium dark navy-gray card layer */
+    border-color: #1b2336 !important;
+}
+
+.dark header.d8 {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+}
+
+.dark .border-slate-200, 
+.dark .border-slate-250, 
+.dark .border-slate-205, 
+.dark .border-slate-100 {
+    border-color: #1c2538 !important;
+}
+
+.dark .text-slate-900, 
+.dark .text-slate-850, 
+.dark .text-slate-800 {
+    color: #f8fafc !important;
+}
+
+.dark .text-slate-705, 
+.dark .text-slate-650, 
+.dark .text-slate-600 {
+    color: #c7d2fe !important; /* Indigo accent overrides */
+}
+
+.dark .text-slate-500, 
+.dark .text-slate-450, 
+.dark .text-slate-400 {
+    color: #8da2bd !important;
+}
+
+.dark .bg-slate-50\/40, .dark .bg-slate-50\/50 {
+    background-color: #0c101a !important;
+}
+
+.dark .bg-indigo-50 {
+    background-color: #151a2d !important;
+}
+
+.dark .bg-slate-50 {
+    background-color: #0e121e !important;
+}
+
+.dark .shadow-sm {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Notebook History Drawer overrides */
+.dark .fixed.right-0.top-0 {
+    background-color: #0c101a !important;
+    border-color: #1b2336 !important;
+}
+
+.dark .p-6.border-b, .dark .p-4.border-b, .dark .border-t {
+    border-color: #1b2336 !important;
+    background-color: #101625 !important;
+}
+
+.dark input {
+    background-color: #101625 !important;
+    border-color: #1c2538 !important;
+    color: #f8fafc !important;
+}
+
+.dark input:focus {
+    border-color: #818cf8 !important;
+    background-color: #0c101a !important;
+}
+
+/* MCQ Assessment Panels in dark mode */
+.dark .mcq-container {
+    background-color: #101525 !important;
+    border-color: #1c2538 !important;
+}
+
+.dark .mcq-question {
+    color: #f8fafc !important;
+}
+
+.dark .mcq-option {
+    background-color: #161c30 !important;
+    border-color: #242f49 !important;
+    color: #cbd5e1 !important;
+}
+
+.dark .mcq-option:hover {
+    background-color: #1b253f !important;
+    border-color: #313f63 !important;
+    color: white !important;
+}
+
+.dark .mcq-option.selected {
+    background-color: #1e294b !important;
+    border-color: #4f46e5 !important;
+    color: #a5b4fc !important;
+}
+
+.dark .mcq-option.correct {
+    background-color: #064e3b !important;
+    border-color: #059669 !important;
+    color: #a7f3d0 !important;
+}
+
+.dark .mcq-option.incorrect {
+    background-color: #4c0519 !important;
+    border-color: #dc2626 !important;
+    color: #fecdd3 !important;
+}
+
+/* Deep details on Notes in Dark Mode */
+.dark .juxa-note-container {
+    color: #cbd5e1 !important;
+}
+
+.dark .juxa-note-container p {
+    color: #cbd5e1 !important;
+}
+
+.dark .juxa-note-container h1 {
+    color: #f8fafc !important;
+}
+
+.dark .juxa-note-container h2 {
+    color: #f1f5f9 !important;
+}
+
+.dark .juxa-note-container h3 {
+    color: #e2e8f0 !important;
+}
+
+.dark .juxa-note-container li {
+    color: #94a3b8 !important;
+}
+
+.dark .juxa-note-container a {
+    color: #818cf8 !important;
+}
+
+.dark .juxa-note-container a:hover {
+    color: #c7d2fe !important;
+}
+
+/* LaTeX representation blocks under Dark Mode */
+.dark .d99 {
+    background-color: #0c101a !important;
+    border-color: #1c2538 !important;
+}
+
+.dark .d103 {
+    background-color: #111a2e !important;
+    border-left-color: #4f46e5 !important;
+}
+
 /* Corrected Styles for Tailwind Protection */
 * {
     box-sizing: border-box;
@@ -1550,4 +1840,67 @@ svg {
 .mcq-option.incorrect {
     background-color: #fff5f5;
     border-color: #fa5252;
+}
+
+/* Custom Spacing & No-Overlap Enhancements for KaTeX / SVGs */
+.prose .d101 {
+    display: block !important;
+    font-size: 1.25em;
+    margin: 1.5rem 0 !important;
+    padding: 1rem 0 !important;
+    text-align: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.prose svg {
+    max-width: 100% !important;
+    height: auto !important;
+    margin: 1.5rem auto !important;
+    display: block;
+}
+
+/* Base print formatting to ensure beautiful textbook outcome */
+@media print {
+    body {
+        background: white !important;
+        color: #0f172a !important;
+    }
+    body * {
+        visibility: hidden !important;
+    }
+    #juxa-printable-article, #juxa-printable-article * {
+        visibility: visible !important;
+    }
+    #juxa-printable-article {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: white !important;
+        color: #0f172a !important;
+    }
+    .no-print {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    .mcq-container {
+        page-break-inside: avoid !important;
+        border: 1px solid #cbd5e1 !important;
+        background-color: #f8fafc !important;
+    }
+    .mcq-option {
+        border: 1px solid #cbd5e1 !important;
+        background-color: white !important;
+    }
+    .katex-display {
+        margin: 1em 0 !important;
+    }
+}
+
+/* html2pdf optimization class */
+.hide-buttons-canvas .no-print {
+    display: none !important;
 }
