@@ -45,10 +45,12 @@ UNIT: ${unitContext.unitName} (Target Curriculum Context)`
 Your absolute primary directive is to transform raw study notes and concepts into a comprehensive, highly-detailed, and extensive textbook chapter/lesson for the unit:
 [ ${contextHeader} ]
 
-CRITICAL LENGTH & DEPTH MANDATE:
+CRITICAL LENGTH, DEPTH, & COGNITIVE RIGOUR MANDATE (SIMULATING EXPANDED REASONING):
+- Approach lesson authoring with the depth of a premium university research syllabus.
+- Prioritize profound technical explanations: detail step-by-step mathematical derivations, state limitations or bounds of laws, explore chronological discovery paradigms, and cover theoretical context exhaustively.
 - The note generated MUST NOT be a short overview or general summary. It must be written as a deep-dive, fully-elaborated textbook chapter (around 1500 to 2500 words or more).
 - For every core concept, write multiple rich paragraphs explaining the theory, history, scientific/mathematical mechanisms, real-world examples, and secondary sub-principles.
-- Integrate expert explanatory text that goes beyond the raw notes, flesh out explanations of equations step-by-step, and provide a master-level analytical breakdown. The user explicitly asked for "detailed, long notes with all features included".
+- Integrate expert explanatory text that goes beyond the raw notes, flesh out explanations of equations step-by-step, and provide a master-level analytical breakdown. The user explicitly asked for "detailed, long notes with all features included" with ultimate academic precision.
 
 Your visual creations (DEMONSTRATIONS) are a key pillar of this academic chapter. You must design and construct stunning, highly-detailed, interactive, and premium inline SVG demonstrations/diagrams.
 
@@ -122,70 +124,6 @@ STRICT GENERAL RULES:
 }
 
 Ensure the output is 100% valid stringified JSON. Do not wrap in markdown block or any code notation outside of clean JSON.`;
-
-  if (source === "local") {
-    try {
-      const promptText = `${systemPrompt}\n\nSyllabus Unit Focus: ${contextHeader}\n\nOriginal Notes/Outline/Uploaded Concepts to Expand & Enhance:\n\n${rawNotes === "AUTOMATIC_SYLLABUS_GENERATION_REQUEST" ? "No raw notes provided. Please construct comprehensive study material for this unit entirely from curriculum specifications and standard grade level benchmarks." : rawNotes}`;
-
-      const res = await fetch("http://127.0.0.1:8000/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text: promptText,
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`Local model server responded with status ${res.status}. Is FastAPI running?`);
-      }
-
-      const data = await res.json();
-      const textResponse = data.response;
-
-      if (!textResponse) {
-        throw new Error("Local model returned empty or null response.");
-      }
-
-      try {
-        const cleanJson = cleanJsonResponse(textResponse);
-        return JSON.parse(cleanJson) as EnhancedNote;
-      } catch (jsonErr) {
-        console.warn("Local model output was not valid JSON, using robust parsing layout fallback:", jsonErr);
-        const designTitle = unitContext?.unitName || "Custom Lesson Guide";
-        
-        return {
-          title: designTitle,
-          htmlContent: `
-            <div class="space-y-6">
-              <div class="p-6 bg-slate-50 border border-slate-200 rounded-3xl">
-                <p class="text-xs text-slate-400 font-mono font-black uppercase tracking-wider mb-2">Offline Local Model Interpretation (Qwen)</p>
-                <div class="text-sm leading-relaxed text-slate-705 whitespace-pre-line font-sans">
-                  ${textResponse}
-                </div>
-              </div>
-            </div>
-          `,
-          mcqs: [
-            {
-              id: "mcq-local-chk",
-              question: "Based on the generated guide, was this lesson fully processed offline by the local Qwen model?",
-              options: [
-                "Yes, via FastAPI and llama-cpp-python completely locally.",
-                "No, this was proxied to a cloud endpoint."
-              ],
-              correctAnswerIndex: 0,
-              explanation: "Correct! The local processing pipeline used llama-cpp-python and GGUF quantized models completely locally on CPU."
-            }
-          ]
-        };
-      }
-    } catch (localErr: any) {
-      console.error("Local model fetch error:", localErr);
-      throw new Error(`Local AI backend request failed: ${localErr?.message || "Please make sure your Python FastAPI server is running on http://127.0.0.1:8000"}`);
-    }
-  }
 
   if (source === "openrouter") {
     const key = localStorage.getItem("juxa_api_source") === "openrouter" ? localStorage.getItem("juxa_openrouter_key") : null;
@@ -338,13 +276,79 @@ Return your response formatted cleanly with beautiful markdown. If writing equat
   // Built-in Gemini
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       contents: `${systemPrompt}\n\nStudent's question: ${userQuestion}`
     });
     return response.text || "I was unable to formulate an explanation for that question, let's try phrasing it differently!";
   } catch (err) {
     console.error(err);
     return "Tutor offline: Please verify that process.env.GEMINI_API_KEY is configured inside your workspace settings.";
+  }
+}
+
+export async function generateExamQuestions(
+  noteTitle: string,
+  noteContent: string,
+  sectionNum: number,
+  sectionTitle: string
+): Promise<MCQ[]> {
+  const systemPrompt = `You are an elite academic examiner, high-school/university gold-medalist mentor, and highly selective testing board director.
+Your core directive is to author exactly 10 EXTREMELY DIFFICULT multiple choice questions (MCQs) for Section ${sectionNum} ("${sectionTitle}") of a comprehensive 100-question rigorous exam.
+The exam is based on the following textbook lesson: "${noteTitle}".
+
+REVIEWS OF LESSON CONTENT OR SYLLABUS:
+--------------------------------------
+${noteContent.substring(0, 15000)}
+--------------------------------------
+
+HIGH-COGNITIVE CRITICAL GUIDELINES:
+1. DESIGN FOR HIGH COGNITIVE LOAD: Do NOT ask simple recall or dictionary definitions. Ask questions that require deep logical combination of multiple principles mentioned in the note, multi-stage calculation, boundary cases, or finding mathematical flaws.
+2. INCORPORATE MATH LOGIC / CALCULUS: If the note contains formulas, include questions that require applying mathematical logic, evaluating derivative limits, finding vector magnitudes, or interpreting graph derivatives with detailed algebraic options.
+3. INTRICATE DISTRACTORS: All options must be plausible and represent common misconceptions. The student should only be able to solve the question if they possess deep, master-level understanding of the concept.
+4. RIGOROUS EXPLANATIONS: Include a very thorough, educational explanation for each question, walking the student step-by-step through the proof, formula deduction, or conceptual clarity.
+
+Each MCQ must be structured precisely matching the JSON schema below:
+{
+  "id": "string (unique identifier)",
+  "question": "string (high-rigor question with clear explanation of parameters)",
+  "options": ["Option A", "Option B", "Option C", "Option D"],
+  "correctAnswerIndex": number (0 to 3),
+  "explanation": "string (extremely detailed step-by-step math/conceptual breakdown of why correct option holds and why distractors fail)"
+}
+
+Return your response as a valid JSON array of exactly 10 MCQ objects. Do not wrap in markdown or any additional speech outside of valid JSON list.`;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: systemPrompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            id: { type: Type.STRING },
+            question: { type: Type.STRING },
+            options: { 
+              type: Type.ARRAY, 
+              items: { type: Type.STRING } 
+            },
+            correctAnswerIndex: { type: Type.INTEGER },
+            explanation: { type: Type.STRING }
+          },
+          required: ["id", "question", "options", "correctAnswerIndex", "explanation"]
+        }
+      }
+    }
+  });
+
+  try {
+    const data = JSON.parse(response.text || "[]");
+    return data as MCQ[];
+  } catch (err) {
+    console.error("Failed to parse dynamic exam questions:", err);
+    throw new Error("Unable to parse the generated rigorous exam paper. Please retry.");
   }
 }
 
