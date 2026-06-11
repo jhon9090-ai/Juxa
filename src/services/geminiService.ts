@@ -242,7 +242,7 @@ Ensure the output is 100% valid stringified JSON. Do not wrap in markdown block 
 
   // Fallback to built-in Gemini AI (GoogleGenAI SDK)
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-2.5-pro",
     contents: `${systemPrompt}\n\nSyllabus Context: ${contextHeader}\nOriginal Source Material:\n${rawNotes === "AUTOMATIC_SYLLABUS_GENERATION_REQUEST" ? "No raw notes provided. Please construct comprehensive study material for this unit entirely from curriculum specifications and standard grade level benchmarks." : rawNotes}`,
     config: {
       responseMimeType: "application/json",
