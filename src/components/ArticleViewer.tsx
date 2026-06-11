@@ -208,21 +208,58 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note }) => {
     setActiveSection(null);
   };
 
+  // Helper to safely strip raw LaTeX delimiters and brackets before sending to KaTeX
+  const cleanLaTeX = (math: string): string => {
+    let cleaned = math.trim();
+    if (cleaned.startsWith('$$') && cleaned.endsWith('$$')) {
+      cleaned = cleaned.substring(2, cleaned.length - 2).trim();
+    }
+    if (cleaned.startsWith('$') && cleaned.endsWith('$')) {
+      cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+    }
+    if (cleaned.startsWith('\\[') && cleaned.endsWith('\\]')) {
+      cleaned = cleaned.substring(2, cleaned.length - 2).trim();
+    }
+    if (cleaned.startsWith('\\(') && cleaned.endsWith('\\)')) {
+      cleaned = cleaned.substring(2, cleaned.length - 2).trim();
+    }
+    return cleaned;
+  };
+
   // Math-Logic / LaTeX parsing inside the questions and answers text
   const parseLaTeXText = (text: string) => {
     if (!text) return "";
-    const parts = text.split(/(\$[^\$]+\$)/g);
-    return parts.map((part, index) => {
-      if (part.startsWith('$') && part.endsWith('$')) {
-        const math = part.slice(1, -1);
-        return <span key={index} className="inline-block mx-0.5 font-semibold text-indigo-600 dark:text-indigo-400 font-sans"><InlineMath math={math} /></span>;
+    
+    // First split on double-dollar $$ block delimiters
+    const blocks = text.split(/(\$\$[\s\S]+?\$\$)/g);
+    return blocks.map((block, bIdx) => {
+      if (block.startsWith('$$') && block.endsWith('$$')) {
+        const math = block.slice(2, -2);
+        return (
+          <div key={`b-${bIdx}`} className="my-3 text-center">
+            <BlockMath math={math} />
+          </div>
+        );
       }
-      return part;
+      
+      // Inside plain text blocks, split on single-dollar $ inline delimiters
+      const parts = block.split(/(\$[^\$]+?\$)/g);
+      return parts.map((part, index) => {
+        if (part.startsWith('$') && part.endsWith('$')) {
+          const math = part.slice(1, -1);
+          return <span key={`i-${bIdx}-${index}`} className="inline-block mx-0.5 font-semibold text-indigo-600 dark:text-indigo-400 font-sans"><InlineMath math={math} /></span>;
+        }
+        return part;
+      });
     });
   };
 
   // Convert special interactive markers back to placeholder nodes
   let processedHtml = note.htmlContent.replace(/\[\[MCQ:([\w-]+)\]\]/g, '<mcq-placeholder data-id="$1"></mcq-placeholder>');
+
+  // Pre-process raw Math delimiters inside HTML to auto-wrap them in rendering classes 
+  processedHtml = processedHtml.replace(/(?<!\\)\$\$([\s\S]+?)(?<!\\)\$\$/g, '<div class="d101">$1</div>');
+  processedHtml = processedHtml.replace(/(?<!\\)\$([^\$]+?)(?<!\\)\$/g, '<span class="katex">$1</span>');
 
   const finalOptions: HTMLReactParserOptions = {
     replace: (domNode) => {
@@ -240,7 +277,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note }) => {
           if (textContent.trim()) {
             return (
               <div className="d101 flex justify-center py-4 text-center">
-                <BlockMath math={textContent.trim()} />
+                <BlockMath math={cleanLaTeX(textContent)} />
               </div>
             );
           }
@@ -251,7 +288,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note }) => {
           if (textContent.trim()) {
             return (
               <span className="katex mx-1">
-                <InlineMath math={textContent.trim()} />
+                <InlineMath math={cleanLaTeX(textContent)} />
               </span>
             );
           }
