@@ -318,6 +318,57 @@ Each MCQ must be structured precisely matching the JSON schema below:
 
 Return your response as a valid JSON array of exactly 10 MCQ objects. Do not wrap in markdown or any additional speech outside of valid JSON list.`;
 
+  const source = localStorage.getItem("juxa_api_source") || "builtin";
+
+  if (source === "openrouter") {
+    const key = localStorage.getItem("juxa_openrouter_key");
+    const model = localStorage.getItem("juxa_openrouter_model") || "google/gemini-2.5-pro";
+    
+    if (!key || !key.trim()) {
+      throw new Error("OpenRouter API Key is missing. Please click the gear settings icon in the top right header to enter your API key.");
+    }
+
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${key}`,
+          "HTTP-Referer": window.location.origin,
+          "X-Title": "Juxa Study Exam Builder"
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt
+            }
+          ],
+          response_format: { type: "json_object" }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`OpenRouter API responded with code ${response.status}: ${errorText}`);
+      }
+
+      const resJson = await response.json();
+      const contentText = resJson.choices?.[0]?.message?.content || "";
+      if (!contentText) {
+        throw new Error("Received empty or invalid completion text from OpenRouter model.");
+      }
+
+      const cleanJson = cleanJsonResponse(contentText);
+      return JSON.parse(cleanJson) as MCQ[];
+    } catch (routeError: any) {
+      console.error("OpenRouter fetch error in generateExamQuestions:", routeError);
+      throw new Error(`OpenRouter request failed: ${routeError?.message || routeError}`);
+    }
+  }
+
+  // Built-in Gemini
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: systemPrompt,
