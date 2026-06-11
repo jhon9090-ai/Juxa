@@ -301,10 +301,6 @@ export default function App() {
           >
             <History className="w-5 h-5" />
           </button>
-          
-          <button className="d48 d66 flex items-center justify-center transition-all hover:bg-white/20 cursor-pointer" aria-label="Share">
-            <Share2 className="w-5 h-5" />
-          </button>
         </div>
       </header>
 
@@ -580,9 +576,6 @@ export default function App() {
                 <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight relative">
                   Juxa Study Vault
                 </h1>
-                <p className="text-slate-400 mt-2 text-sm leading-relaxed relative">
-                  Transform custom curriculum items into highly rigorous textbook entries, styled with dark vector mechanics and interactive assessment checkups.
-                </p>
               </div>
 
               {/* Subjects Bento Grid */}
