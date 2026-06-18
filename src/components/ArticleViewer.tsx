@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { HTMLReactParserOptions, Element } from 'html-react-parser';
 import parse from 'html-react-parser';
+import katex from 'katex';
 import { SafeMath } from './SafeMath';
 import { MCQComponent } from './MCQComponent';
-import { EnhancedNote, generateExamQuestions, MCQ, generateBespokeExamSections, BespokeSection } from '../services/geminiService';
+import { EnhancedNote, generateExamQuestions, MCQ, generateBespokeExamSections, BespokeSection, fixAllLaTeXInDocument, healDocumentFormulaWithAI } from '../services/geminiService';
 import { saveNotebook, EnhancedNotebook } from '../services/db';
 import { SYLLABUS } from '../data/syllabus';
 
@@ -81,7 +82,7 @@ import {
   Printer, FileDown, RefreshCw, GraduationCap, Award, 
   ChevronRight, ArrowLeft, Brain, Check, X, CheckSquare, 
   Play, BookOpen, AlertCircle, HelpCircle, Trophy, BarChart2,
-  ChevronLeft, FastForward, Clock
+  ChevronLeft, FastForward, Clock, Sparkles
 } from 'lucide-react';
 
 interface ArticleViewerProps {
@@ -254,6 +255,145 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     }
   };
 
+  // LaTeX Diagnostics states
+  const [isFixingAll, setIsFixingAll] = useState(false);
+
+  // Scan note body and MCQs for LaTeX errors dynamically
+  const latexErrors = useMemo(() => {
+    const errors: { id: string; math: string; displayMode: boolean; errorMsg: string; location: string }[] = [];
+    if (!note) return errors;
+
+    // Helper to safely check if LaTeX compiles with KaTeX
+    const checkLaTeX = (math: string, displayMode: boolean, location: string, id: string) => {
+      const cleaned = cleanLaTeX(math);
+      if (!cleaned.trim()) return;
+      try {
+        katex.renderToString(cleaned, { throwOnError: true, displayMode });
+      } catch (err: any) {
+        errors.push({
+          id,
+          math: cleaned,
+          displayMode,
+          errorMsg: err?.message || "KaTeX formatting error",
+          location
+        });
+      }
+    };
+
+    // 1. Scan Note content HTML
+    // Find all $$ and $ blocks
+    const html = note.htmlContent || "";
+    
+    // First let's check block equations
+    const blocks = html.split(/(?<!\\)\$\$([\s\S]+?)(?<!\\)\$\$/g);
+    blocks.forEach((block, idx) => {
+      if (idx % 2 === 1) { // odd indexes are inside double-dollars
+        checkLaTeX(block, true, "Note Body text", `block-html-${idx}`);
+      } else {
+        // even indexes are normal text, search for inline equations
+        const parts = block.split(/(?<!\\)\$([^\$]+?)(?<!\\)\$/g);
+        parts.forEach((part, idx2) => {
+          if (idx2 % 2 === 1) { // odd indexes are inside single-dollars
+            checkLaTeX(part, false, "Note Body text", `inline-html-${idx}-${idx2}`);
+          }
+        });
+      }
+    });
+
+    // 2. Scan companion questions MCQs
+    const mcqsList = note.mcqs || [];
+    mcqsList.forEach((mcq, mIdx) => {
+      const qNum = mIdx + 1;
+      
+      // Question field
+      const qBlocks = mcq.question.split(/(?<!\\)\$\$([\s\S]+?)(?<!\\)\$\$/g);
+      qBlocks.forEach((qb, idx) => {
+        if (idx % 2 === 1) {
+          checkLaTeX(qb, true, `Question ${qNum} Prompt`, `mcq-${mcq.id}-q-block-${idx}`);
+        } else {
+          const qp = qb.split(/(?<!\\)\$([^\$]+?)(?<!\\)\$/g);
+          qp.forEach((p, idx2) => {
+            if (idx2 % 2 === 1) {
+              checkLaTeX(p, false, `Question ${qNum} Prompt`, `mcq-${mcq.id}-q-inline-${idx}-${idx2}`);
+            }
+          });
+        }
+      });
+
+      // Explanation field
+      const eBlocks = mcq.explanation.split(/(?<!\\)\$\$([\s\S]+?)(?<!\\)\$\$/g);
+      eBlocks.forEach((eb, idx) => {
+        if (idx % 2 === 1) {
+          checkLaTeX(eb, true, `Question ${qNum} Explanation`, `mcq-${mcq.id}-e-block-${idx}`);
+        } else {
+          const ep = eb.split(/(?<!\\)\$([^\$]+?)(?<!\\)\$/g);
+          ep.forEach((p, idx2) => {
+            if (idx2 % 2 === 1) {
+              checkLaTeX(p, false, `Question ${qNum} Explanation`, `mcq-${mcq.id}-e-inline-${idx}-${idx2}`);
+            }
+          });
+        }
+      });
+
+      // Options
+      mcq.options.forEach((opt, oIdx) => {
+        const optionLabel = ["A", "B", "C", "D"][oIdx] || String(oIdx + 1);
+        const oBlocks = opt.split(/(?<!\\)\$\$([\s\S]+?)(?<!\\)\$\$/g);
+        oBlocks.forEach((ob, idx) => {
+          if (idx % 2 === 1) {
+            checkLaTeX(ob, true, `Question ${qNum} Option ${optionLabel}`, `mcq-${mcq.id}-opt-${oIdx}-block-${idx}`);
+          } else {
+            const op = ob.split(/(?<!\\)\$([^\$]+?)(?<!\\)\$/g);
+            op.forEach((p, idx2) => {
+              if (idx2 % 2 === 1) {
+                checkLaTeX(p, false, `Question ${qNum} Option ${optionLabel}`, `mcq-${mcq.id}-opt-${oIdx}-inline-${idx}-${idx2}`);
+              }
+            });
+          }
+        });
+      });
+    });
+
+    return errors;
+  }, [note.htmlContent, note.mcqs]);
+
+  // Master command to fix all LaTeX syntax anomalies on note content and questions
+  const handleFixAllLaTeX = async () => {
+    if (isFixingAll) return;
+    setIsFixingAll(true);
+    setErrorMessage(null);
+    try {
+      // Save original state to history stack for instant Ctrl+Z support
+      setHistoryStack(prev => [...prev, JSON.stringify({ htmlContent: note.htmlContent, mcqs: note.mcqs })]);
+      
+      setCustomRoadmapSuccess("Activating AI Math Doctor to scan and heal all LaTeX equations...");
+      const result = await fixAllLaTeXInDocument(note.title, note.htmlContent, note.mcqs);
+      
+      const updatedNotebook = {
+        ...note,
+        htmlContent: result.htmlContent,
+        mcqs: result.mcqs
+      } as EnhancedNotebook;
+
+      await saveNotebook(updatedNotebook);
+      
+      if (onUpdateNote) {
+        onUpdateNote(updatedNotebook);
+      }
+      
+      // Update local text editor text
+      setEditContent(result.htmlContent);
+      
+      setCustomRoadmapSuccess("✅ All LaTeX mathematical equations healed successfully! Press Ctrl+Z to undo.");
+      setTimeout(() => setCustomRoadmapSuccess(null), 5000);
+    } catch (err: any) {
+      console.error("AI automated diagnostics healing failed:", err);
+      setErrorMessage(`AI doctor failed to heal formulas: ${err?.message || err}`);
+    } finally {
+      setIsFixingAll(false);
+    }
+  };
+
   // Automated Formula fixing handler
   const handleFixFormula = async (badFormula: string, fixedFormula: string, displayMode: boolean) => {
     // Fuzzy search and replace helper
@@ -363,6 +503,21 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
       return mcq;
     });
 
+    // Fallback: If local string replacement completely missed or was corrupted,
+    // let's run contextual AI healing over the entire note content dynamically!
+    if (!foundAndReplaced && !foundInMcqs) {
+      try {
+        setCustomRoadmapSuccess("Regex matching missed. Healing via contextual AI synthesis...");
+        const healedHtml = await healDocumentFormulaWithAI(note.title, currentHtml, badFormula, fixedFormula);
+        if (healedHtml && healedHtml.trim() !== currentHtml.trim()) {
+          currentHtml = healedHtml;
+          foundAndReplaced = true;
+        }
+      } catch (e: any) {
+        console.error("AI contextual healing fallback failed:", e);
+      }
+    }
+
     if (foundAndReplaced || foundInMcqs) {
       // Save previously existing state to undo stack first (allows Ctrl+Z afterward!)
       setHistoryStack(prev => [...prev, JSON.stringify({ htmlContent: note.htmlContent, mcqs: note.mcqs })]);
@@ -378,6 +533,9 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
       if (onUpdateNote) {
         onUpdateNote(updatedNotebook);
       }
+
+      // Sync local text editor content
+      setEditContent(currentHtml);
 
       setCustomRoadmapSuccess("LaTeX formula fixed and saved successfully!");
       setTimeout(() => setCustomRoadmapSuccess(null), 3500);
@@ -1375,6 +1533,64 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
             {note.title}
           </h1>
         </div>
+
+        {/* LaTeX syntax / formatting diagnostics doctor */}
+        {latexErrors.length > 0 && (
+          <div className="no-print bg-rose-50/80 border border-rose-150 dark:bg-rose-950/20 dark:border-rose-900/40 rounded-3xl p-5 mb-8 flex flex-col md:flex-row items-center justify-between gap-5 relative overflow-hidden shadow-sm">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl"></div>
+            <div className="flex items-start gap-3.5 relative z-10">
+              <div className="p-3 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl flex-shrink-0 animate-pulse">
+                <Brain className="w-5.5 h-5.5" />
+              </div>
+              <div className="text-left">
+                <span className="text-[9px] font-black uppercase tracking-widest text-rose-500 bg-rose-500/10 px-2.5 py-0.5 rounded-full font-mono">
+                  Diagnostics Engine
+                </span>
+                <h4 className="text-base font-extrabold text-rose-950 dark:text-rose-200 tracking-tight mt-1 mb-0.5">
+                  LaTeX Syntax Anomalies Found
+                </h4>
+                <p className="text-xs text-rose-700/80 dark:text-rose-400 mt-1 max-w-xl leading-relaxed">
+                  We scanned this lesson note and found exactly <strong className="font-extrabold text-rose-950 dark:text-rose-200">{latexErrors.length} formatting error{latexErrors.length > 1 ? "s" : ""}</strong> that will corrupt mathematical rendering. You can easily fix them all automatically using AI.
+                </p>
+                
+                {/* Lists of detected locations inside tooltip or tiny logs */}
+                <div className="flex flex-wrap gap-2 mt-2.5">
+                  {latexErrors.slice(0, 4).map((err, errIdx) => (
+                    <span key={errIdx} className="text-[9px] font-mono font-medium bg-rose-950/10 dark:bg-rose-950/40 text-rose-750 dark:text-rose-450 border border-rose-500/10 px-2 py-0.5 rounded">
+                      {err.location}: <code className="font-black bg-rose-950/5 px-1 py-0.5 text-rose-600 dark:text-rose-300">{err.math.slice(0, 15)}{err.math.length > 15 ? "..." : ""}</code>
+                    </span>
+                  ))}
+                  {latexErrors.length > 4 && (
+                    <span className="text-[9px] font-mono font-medium text-rose-500 select-none">
+                      + {latexErrors.length - 4} more anomalies
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2.5 w-full md:w-auto flex-shrink-0 relative z-10">
+              <button
+                type="button"
+                onClick={handleFixAllLaTeX}
+                disabled={isFixingAll}
+                className="w-full md:w-auto px-5 py-3 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 dark:disabled:bg-slate-800 disabled:text-slate-450 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow hover:shadow-md cursor-pointer transition-all active:scale-[98%] flex items-center justify-center gap-2 whitespace-nowrap"
+              >
+                {isFixingAll ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>AI Healing Document...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-rose-300 animate-pulse" />
+                    <span>AI Heal All Formulas</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Notebook Body Content */}
         <div className={`juxa-note-container prose prose-slate dark:prose-invert max-w-none ${isFolded ? 'is-folded' : ''}`}>
