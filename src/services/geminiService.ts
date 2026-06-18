@@ -523,4 +523,64 @@ Do not wrap in markdown or any additional speech outside of valid JSON list.`;
   }
 }
 
+export async function fixLaTeXEquation(
+  faultyMath: string,
+  errorMsg?: string
+): Promise<string> {
+  const source = localStorage.getItem("juxa_api_source") || "builtin";
+  const systemPrompt = `You are a mathematical LaTeX formatting expert.
+Your job is to fix a LaTeX math expression that failed to render in KaTeX.
+Correct any syntax errors, unescaped brackets, invalid macros (such as using \\text{} with bad characters or nesting issues, or backslash escapes), or unbalanced brackets / parentheses.
+Return ONLY the corrected raw math expression string, absolutely without any markdown wrapping (no \`\`\`), no explanation, and no leading/trailing dollar signs ($).
+
+Faulty Expression:
+${faultyMath}
+
+KaTeX Error Message (if any):
+${errorMsg || "Syntax error or parsing failure in KaTeX"}`;
+
+  if (source === "openrouter") {
+    const key = localStorage.getItem("juxa_openrouter_key");
+    const model = localStorage.getItem("juxa_openrouter_model") || "google/gemini-2.5-pro";
+    if (!key || !key.trim()) {
+      throw new Error("API Key missing: Please enter your OpenRouter API Key in the top-right settings menu.");
+    }
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${key}`
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Please fix this LaTeX formula: ${faultyMath}` }
+          ]
+        })
+      });
+      if (!response.ok) {
+        throw new Error(`OpenRouter returned status ${response.status}`);
+      }
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || "";
+      return content.trim().replace(/^\$+|\$+$/g, "").trim();
+    } catch (e: any) {
+      console.error("OpenRouter correction failed", e);
+      throw e;
+    }
+  }
+
+  // Built-in Gemini
+  const response = await ai.models.generateContent({
+    model: getBuiltinModel(),
+    contents: systemPrompt
+  });
+  
+  const text = (response.text || "").trim();
+  // Strip any accidental markdown formatting or dollar signs
+  return text.replace(/^`+latex|`+$/g, "").replace(/^\$+|\$+$/g, "").trim();
+}
+
 
