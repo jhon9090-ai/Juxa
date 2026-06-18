@@ -256,44 +256,98 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
 
   // Automated Formula fixing handler
   const handleFixFormula = async (badFormula: string, fixedFormula: string, displayMode: boolean) => {
-    let currentHtml = note.htmlContent;
-    let foundAndReplaced = false;
-
-    // Direct replacement of exact match
-    if (currentHtml.includes(badFormula)) {
-      currentHtml = currentHtml.replace(badFormula, fixedFormula);
-      foundAndReplaced = true;
-    } else {
-      const cleanedBad = badFormula.trim();
-      if (currentHtml.includes(cleanedBad)) {
-        currentHtml = currentHtml.replace(cleanedBad, fixedFormula);
-        foundAndReplaced = true;
+    // Fuzzy search and replace helper
+    const replaceFuzzy = (sourceStr: string, bad: string, replacement: string): { success: boolean; result: string } => {
+      // 1. Direct replacement of exact match
+      if (sourceStr.includes(bad)) {
+        return { success: true, result: sourceStr.replace(bad, replacement) };
       }
+      const trimmedBad = bad.trim();
+      if (sourceStr.includes(trimmedBad)) {
+        return { success: true, result: sourceStr.replace(trimmedBad, replacement) };
+      }
+
+      // 2. Normalized comparison replacement
+      const normalize = (s: string) => s.replace(/[\s\n\r\t\$]/g, '').toLowerCase();
+      const normalizedBad = normalize(bad);
+      if (!normalizedBad) return { success: false, result: sourceStr };
+
+      const originalIndices: number[] = [];
+      let normalizedOriginal = "";
+      for (let i = 0; i < sourceStr.length; i++) {
+        const char = sourceStr[i];
+        if (!/[\s\n\r\t\$]/.test(char)) {
+          normalizedOriginal += char.toLowerCase();
+          originalIndices.push(i);
+        }
+      }
+
+      const matchIdx = normalizedOriginal.indexOf(normalizedBad);
+      if (matchIdx !== -1) {
+        const start = originalIndices[matchIdx];
+        const end = originalIndices[matchIdx + normalizedBad.length - 1] + 1;
+        const substituted = sourceStr.substring(0, start) + replacement + sourceStr.substring(end);
+        return { success: true, result: substituted };
+      }
+
+      // 3. Ultra-fuzzy comparison (ignoring backslashes to resolve escaping level conflicts)
+      const normalizeMore = (s: string) => s.replace(/[\s\n\r\t\$\\]/g, '').toLowerCase();
+      const normalizedBadMore = normalizeMore(bad);
+      if (!normalizedBadMore) return { success: false, result: sourceStr };
+
+      const originalMoreIndices: number[] = [];
+      let normalizedOriginalMore = "";
+      for (let i = 0; i < sourceStr.length; i++) {
+        const char = sourceStr[i];
+        if (!/[\s\n\r\t\$\\]/.test(char)) {
+          normalizedOriginalMore += char.toLowerCase();
+          originalMoreIndices.push(i);
+        }
+      }
+
+      const matchIdxMore = normalizedOriginalMore.indexOf(normalizedBadMore);
+      if (matchIdxMore !== -1) {
+        const start = originalMoreIndices[matchIdxMore];
+        const end = originalMoreIndices[matchIdxMore + normalizedBadMore.length - 1] + 1;
+        const substituted = sourceStr.substring(0, start) + replacement + sourceStr.substring(end);
+        return { success: true, result: substituted };
+      }
+
+      return { success: false, result: sourceStr };
+    };
+
+    let currentHtml = note.htmlContent;
+    const resHtml = replaceFuzzy(currentHtml, badFormula, fixedFormula);
+    let foundAndReplaced = resHtml.success;
+    if (foundAndReplaced) {
+      currentHtml = resHtml.result;
     }
 
     // Replace also in questions context if appropriate
-    let updatedMcqs = [...note.mcqs];
     let foundInMcqs = false;
-    
-    updatedMcqs = updatedMcqs.map(mcq => {
+    const updatedMcqs = note.mcqs.map(mcq => {
       let changed = false;
+      
+      const qRes = replaceFuzzy(mcq.question, badFormula, fixedFormula);
       let q = mcq.question;
-      if (q.includes(badFormula)) {
-        q = q.replace(badFormula, fixedFormula);
+      if (qRes.success) {
+        q = qRes.result;
         changed = true;
       }
       
       const opts = mcq.options.map(opt => {
-        if (opt.includes(badFormula)) {
+        const optRes = replaceFuzzy(opt, badFormula, fixedFormula);
+        if (optRes.success) {
           changed = true;
-          return opt.replace(badFormula, fixedFormula);
+          return optRes.result;
         }
         return opt;
       });
 
+      const expRes = replaceFuzzy(mcq.explanation, badFormula, fixedFormula);
       let exp = mcq.explanation;
-      if (exp.includes(badFormula)) {
-        exp = exp.replace(badFormula, fixedFormula);
+      if (expRes.success) {
+        exp = expRes.result;
         changed = true;
       }
 
@@ -310,7 +364,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     });
 
     if (foundAndReplaced || foundInMcqs) {
-      // Save previously existing state to undo stack first
+      // Save previously existing state to undo stack first (allows Ctrl+Z afterward!)
       setHistoryStack(prev => [...prev, JSON.stringify({ htmlContent: note.htmlContent, mcqs: note.mcqs })]);
 
       const updatedNotebook = {
