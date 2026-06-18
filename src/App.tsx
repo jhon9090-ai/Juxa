@@ -367,7 +367,7 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <ArticleViewer note={enhancedNote} />
+              <ArticleViewer note={enhancedNote} onUpdateNote={setEnhancedNote} />
             </motion.div>
           ) : selectedUnitId && activeSubject && activeTheme && activeUnit ? (
             /* Selected Unit detail Workspace */
