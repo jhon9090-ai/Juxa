@@ -583,4 +583,141 @@ ${errorMsg || "Syntax error or parsing failure in KaTeX"}`;
   return text.replace(/^`+latex|`+$/g, "").replace(/^\$+|\$+$/g, "").trim();
 }
 
+/**
+ * Perform a context-aware AI rewrite to replace a single faulty formula inside an HTML string
+ */
+export async function healDocumentFormulaWithAI(
+  title: string,
+  htmlContent: string,
+  badFormula: string,
+  fixedFormula: string
+): Promise<string> {
+  const source = localStorage.getItem("juxa_api_source") || "builtin";
+  const systemPrompt = `You are an expert mathematical LaTeX and HTML parsing and formatting assistant.
+We have an HTML lesson titled "${title}".
+Inside this lesson, there is a LaTeX equation that failed to render in KaTeX:
+"${badFormula}"
+
+Your goal is to replace this bad equation with the corrected version:
+"${fixedFormula}"
+
+Identify where this formula is located inside the HTML document structure and make the replace.
+CRITICAL RULES:
+1. ONLY modify the target math formula to fix its syntax. Keep all other parts of the text, layout, tags, and code perfect.
+2. Maintain all exact HTML classes, structures, list items, and paragraph layout.
+3. Return ONLY the fully updated note content, absolutely without any markdown code block wrappers (no \`\`\`html) or conversational commentary.`;
+
+  if (source === "openrouter") {
+    const key = localStorage.getItem("juxa_openrouter_key");
+    const model = localStorage.getItem("juxa_openrouter_model") || "google/gemini-2.5-pro";
+    if (!key || !key.trim()) {
+      throw new Error("API Key missing: Please add your API connection key in the settings.");
+    }
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: "user", content: `${systemPrompt}\n\nDocument HTML Content:\n${htmlContent}` }]
+      })
+    });
+    const data = await response.json();
+    return (data.choices?.[0]?.message?.content || "").trim().replace(/^```html\s*|```$/g, "").trim();
+  }
+
+  // Built-in Gemini
+  const response = await ai.models.generateContent({
+    model: getBuiltinModel(),
+    contents: `${systemPrompt}\n\nDocument HTML Content:\n${htmlContent}`
+  });
+  return (response.text || "").trim().replace(/^```html\s*|```$/g, "").trim();
+}
+
+/**
+ * Scan the entire note and MCQs, detect LaTeX issues, and perform full sweep corrections in one step.
+ */
+export async function fixAllLaTeXInDocument(
+  title: string,
+  htmlContent: string,
+  mcqs: any[]
+): Promise<{ htmlContent: string; mcqs: any[] }> {
+  const source = localStorage.getItem("juxa_api_source") || "builtin";
+  const systemPrompt = `You are a world-class mathematical formatting expert and AI math doctor.
+Your job is to scan the provided tutorial lesson note and its companion multiple-choice questions (MCQs), search for any LaTeX formatting/syntax errors that fail KaTeX rendering (such as mismatched brackets/parentheses, bad macros, unescaped text, unescaped characters, backslash issues), and return the complete corrected versions.
+
+CRITICAL RULES:
+1. ONLY fix mathematical formulas (delimited by $$...$$ or $...$). DO NOT change, summarize, shorten or modify the surrounding body text, lesson paragraphs, HTML elements, outline structures, or descriptions.
+2. Maintain all exact HTML tags, spacing, custom classes ("d101", "katex"), placeholders (e.g. [[MCQ:id]]), and structure perfectly.
+3. For MCQs, keep the exact IDs, correct answers, and text structure, only correcting faulty LaTeX formulas inside "question", "options", or "explanation".
+4. Return ONLY a valid JSON object matching the requested schema. Do not enclose in markdown code fences (\`\`\`json) or output any conversational text.
+
+JSON Schema:
+{
+  "htmlContent": "fully corrected HTML content",
+  "mcqs": [
+    {
+      "id": "string",
+      "question": "fully corrected question text",
+      "options": ["corrected option A", "corrected option B", "corrected option C", "corrected option D"],
+      "explanation": "fully corrected explanation"
+    }
+  ]
+}
+
+Input Note Title: "${title}"
+Input HTML Content:
+${htmlContent}
+
+Input MCQs:
+${JSON.stringify(mcqs)}`;
+
+  let jsonText = "";
+
+  if (source === "openrouter") {
+    const key = localStorage.getItem("juxa_openrouter_key");
+    const model = localStorage.getItem("juxa_openrouter_model") || "google/gemini-2.5-pro";
+    if (!key || !key.trim()) {
+      throw new Error("API Key missing: Please add your OpenRouter connection key in the settings.");
+    }
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: "user", content: systemPrompt }],
+        response_format: { type: "json_object" }
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`OpenRouter returned status ${response.status}`);
+    }
+    const data = await response.json();
+    jsonText = data.choices?.[0]?.message?.content || "";
+  } else {
+    // Built-in Gemini
+    const response = await ai.models.generateContent({
+      model: getBuiltinModel(),
+      contents: systemPrompt,
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+    jsonText = response.text || "";
+  }
+
+  const cleanedJson = jsonText.trim().replace(/^```json\s*|```$/g, "").trim();
+  const parsed = JSON.parse(cleanedJson);
+  if (!parsed.htmlContent) {
+    throw new Error("AI response was malformed or did not contain the htmlContent key.");
+  }
+  return parsed as { htmlContent: string; mcqs: any[] };
+}
+
+
 
