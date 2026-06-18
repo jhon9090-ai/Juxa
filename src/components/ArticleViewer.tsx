@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import parse, { HTMLReactParserOptions, Element } from 'html-react-parser';
-import { InlineMath, BlockMath } from 'react-katex';
+import { HTMLReactParserOptions, Element } from 'html-react-parser';
+import parse from 'html-react-parser';
+import { SafeMath } from './SafeMath';
 import { MCQComponent } from './MCQComponent';
 import { EnhancedNote, generateExamQuestions, MCQ, generateBespokeExamSections, BespokeSection } from '../services/geminiService';
 import { saveNotebook, EnhancedNotebook } from '../services/db';
@@ -116,6 +117,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   const [editTitle, setEditTitle] = useState(note.title);
   const [editContent, setEditContent] = useState(note.htmlContent);
   const [isFolded, setIsFolded] = useState(false);
+  const [historyStack, setHistoryStack] = useState<string[]>([]);
 
   // Load persistent progress on note change
   useEffect(() => {
@@ -198,9 +200,144 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Global Undo (Ctrl + Z) Event Listener
+  useEffect(() => {
+    const handleUndoShortcut = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        // If focusing inside an input/textarea, standard browser undo/redo is active inside the text area
+        const target = e.target as HTMLElement;
+        if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) {
+          return; 
+        }
+        
+        e.preventDefault();
+        handleGlobalUndo();
+      }
+    };
+
+    window.addEventListener("keydown", handleUndoShortcut);
+    return () => window.removeEventListener("keydown", handleUndoShortcut);
+  }, [historyStack, note, onUpdateNote]);
+
+  // Global Undo state execution
+  const handleGlobalUndo = async () => {
+    if (historyStack.length === 0) return;
+    
+    const previousStateString = historyStack[historyStack.length - 1];
+    const newHistory = historyStack.slice(0, -1);
+    setHistoryStack(newHistory);
+
+    try {
+      const parsed = JSON.parse(previousStateString);
+      const previousHtml = parsed.htmlContent;
+      const previousMcqs = parsed.mcqs;
+
+      const updatedNotebook = {
+        ...note,
+        htmlContent: previousHtml,
+        mcqs: previousMcqs
+      } as EnhancedNotebook;
+
+      await saveNotebook(updatedNotebook);
+
+      if (onUpdateNote) {
+        onUpdateNote(updatedNotebook);
+      }
+      
+      // Sync local text editor content
+      setEditContent(previousHtml);
+      
+      setCustomRoadmapSuccess("Reverted last edit successfully! (Ctrl+Z applied)");
+      setTimeout(() => setCustomRoadmapSuccess(null), 3000);
+    } catch (e) {
+      console.error("Failed to parse state for Undo:", e);
+    }
+  };
+
+  // Automated Formula fixing handler
+  const handleFixFormula = async (badFormula: string, fixedFormula: string, displayMode: boolean) => {
+    let currentHtml = note.htmlContent;
+    let foundAndReplaced = false;
+
+    // Direct replacement of exact match
+    if (currentHtml.includes(badFormula)) {
+      currentHtml = currentHtml.replace(badFormula, fixedFormula);
+      foundAndReplaced = true;
+    } else {
+      const cleanedBad = badFormula.trim();
+      if (currentHtml.includes(cleanedBad)) {
+        currentHtml = currentHtml.replace(cleanedBad, fixedFormula);
+        foundAndReplaced = true;
+      }
+    }
+
+    // Replace also in questions context if appropriate
+    let updatedMcqs = [...note.mcqs];
+    let foundInMcqs = false;
+    
+    updatedMcqs = updatedMcqs.map(mcq => {
+      let changed = false;
+      let q = mcq.question;
+      if (q.includes(badFormula)) {
+        q = q.replace(badFormula, fixedFormula);
+        changed = true;
+      }
+      
+      const opts = mcq.options.map(opt => {
+        if (opt.includes(badFormula)) {
+          changed = true;
+          return opt.replace(badFormula, fixedFormula);
+        }
+        return opt;
+      });
+
+      let exp = mcq.explanation;
+      if (exp.includes(badFormula)) {
+        exp = exp.replace(badFormula, fixedFormula);
+        changed = true;
+      }
+
+      if (changed) {
+        foundInMcqs = true;
+        return {
+          ...mcq,
+          question: q,
+          options: opts,
+          explanation: exp
+        };
+      }
+      return mcq;
+    });
+
+    if (foundAndReplaced || foundInMcqs) {
+      // Save previously existing state to undo stack first
+      setHistoryStack(prev => [...prev, JSON.stringify({ htmlContent: note.htmlContent, mcqs: note.mcqs })]);
+
+      const updatedNotebook = {
+        ...note,
+        htmlContent: currentHtml,
+        mcqs: updatedMcqs
+      } as EnhancedNotebook;
+
+      await saveNotebook(updatedNotebook);
+
+      if (onUpdateNote) {
+        onUpdateNote(updatedNotebook);
+      }
+
+      setCustomRoadmapSuccess("LaTeX formula fixed and saved successfully!");
+      setTimeout(() => setCustomRoadmapSuccess(null), 3500);
+    } else {
+      alert("Could not find the target formula inside the page or questions to perform automated replacement.");
+    }
+  };
+
   // Save edits handler
   const handleSaveEdits = async () => {
     try {
+      // Back up previous state to history
+      setHistoryStack(prev => [...prev, JSON.stringify({ htmlContent: note.htmlContent, mcqs: note.mcqs })]);
+
       const updatedNotebook = {
         ...note,
         title: editTitle,
@@ -216,6 +353,8 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
       }
 
       setIsEditing(false);
+      setCustomRoadmapSuccess("Edits applied live successfully!");
+      setTimeout(() => setCustomRoadmapSuccess(null), 3000);
     } catch (err: any) {
       alert("Failed to save edited note: " + (err?.message || err));
     }
@@ -450,13 +589,22 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     if (!text) return "";
     
     // First split on double-dollar $$ block delimiters
-    const blocks = text.split(/(\$\$[\s\S]+?\$\$)/g);
-    return blocks.map((block, bIdx) => {
+    const blocks = text.split(/(\txt\$\$[\s\S]+?\$\$)/g);
+    // Actually standard splitting is:
+    const normalBlocks = text.split(/(\$\$[\s\S]+?\$\$)/g);
+    return normalBlocks.map((block, bIdx) => {
       if (block.startsWith('$$') && block.endsWith('$$')) {
         const math = block.slice(2, -2);
+        const cleanMath = cleanLaTeX(math);
         return (
           <div key={`b-${bIdx}`} className="my-3 text-center">
-            <BlockMath math={math} />
+            <SafeMath 
+              math={cleanMath} 
+              displayMode={true} 
+              onFix={async (fixedMath) => {
+                await handleFixFormula(cleanMath, fixedMath, true);
+              }}
+            />
           </div>
         );
       }
@@ -466,7 +614,18 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
       return parts.map((part, index) => {
         if (part.startsWith('$') && part.endsWith('$')) {
           const math = part.slice(1, -1);
-          return <span key={`i-${bIdx}-${index}`} className="inline-block mx-0.5 font-semibold text-indigo-600 dark:text-indigo-400 font-sans"><InlineMath math={math} /></span>;
+          const cleanMath = cleanLaTeX(math);
+          return (
+            <span key={`i-${bIdx}-${index}`} className="inline-block mx-0.5 font-semibold text-indigo-600 dark:text-indigo-400 font-sans">
+              <SafeMath 
+                math={cleanMath} 
+                displayMode={false} 
+                onFix={async (fixedMath) => {
+                  await handleFixFormula(cleanMath, fixedMath, false);
+                }}
+              />
+            </span>
+          );
         }
         return part;
       });
@@ -494,9 +653,16 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
         if (domNode.attribs && domNode.attribs.class && domNode.attribs.class.includes('d101')) {
           const textContent = getTextFromNode(domNode);
           if (textContent.trim()) {
+            const cleanMath = cleanLaTeX(textContent);
             return (
-              <div className="d101 flex justify-center py-4 text-center">
-                <BlockMath math={cleanLaTeX(textContent)} />
+              <div className="d101 flex justify-center py-4 text-center w-full">
+                <SafeMath 
+                  math={cleanMath} 
+                  displayMode={true} 
+                  onFix={async (fixedMath) => {
+                    await handleFixFormula(cleanMath, fixedMath, true);
+                  }}
+                />
               </div>
             );
           }
@@ -505,9 +671,16 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
         if (domNode.attribs && domNode.attribs.class && domNode.attribs.class.includes('katex')) {
           const textContent = getTextFromNode(domNode);
           if (textContent.trim()) {
+            const cleanMath = cleanLaTeX(textContent);
             return (
               <span className="katex mx-1">
-                <InlineMath math={cleanLaTeX(textContent)} />
+                <SafeMath 
+                  math={cleanMath} 
+                  displayMode={false} 
+                  onFix={async (fixedMath) => {
+                    await handleFixFormula(cleanMath, fixedMath, false);
+                  }}
+                />
               </span>
             );
           }
