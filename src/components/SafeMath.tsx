@@ -61,67 +61,41 @@ export const SafeMath: React.FC<SafeMathProps> = ({ math, displayMode = false, o
     return displayMode ? <BlockMath math={math} /> : <InlineMath math={math} />;
   }
 
-  // If there's an error, we display the error custom card with the custom hover menu
+  // If there's an error, we display the error as red text.
+  // Whenever the user hovers over the red text, a small star shows up.
+  // Upon clicking, it will start fixing the error.
   return (
-    <div 
-      className={`group relative my-3 p-4 rounded-xl border transition-all duration-300 ${
-        displayMode ? 'w-full' : 'inline-block'
-      } bg-rose-50/10 dark:bg-rose-950/10 border-rose-500/30 hover:border-indigo-500/50 hover:bg-slate-900/40`}
+    <span 
+      onClick={handleAiFixClick}
+      title={isFixing ? "Fixing LaTeX equation..." : `Error: ${kaTexErrorMessage}. Click to fix using AI.`}
+      className={`group relative inline-flex items-center gap-1.5 cursor-pointer text-red-600 dark:text-red-400 font-mono text-sm font-semibold select-none break-all py-0.5 hover:underline transition-all active:scale-[99%] duration-150 ${
+        displayMode ? 'w-full justify-center text-center py-2' : ''
+      }`}
     >
-      {/* Error presentation */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-1.5 text-rose-500 dark:text-rose-400 font-mono text-xs font-semibold">
-          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 animate-pulse" />
-          <span>KaTeX Render Error:</span>
-        </div>
-        
-        {/* Render raw math formula in red monospaced text to match user screenshot style */}
-        <pre className="text-xs font-mono text-rose-550 dark:text-rose-400 overflow-x-auto whitespace-pre-wrap leading-relaxed py-2 max-w-full bg-rose-950/5 p-2.5 rounded-lg border border-rose-550/10">
-          {math}
-        </pre>
-        
-        {/* Render precise error description */}
-        <p className="text-[10px] text-slate-400 font-mono italic max-w-full border-t border-rose-550/5 pt-1.5 leading-tight">
-          {kaTexErrorMessage}
-        </p>
-      </div>
+      <span className="break-all">{math}</span>
+      
+      {/* Small star (Sparkles) showing up on hover or during fixing */}
+      <span className="inline-flex items-center justify-center w-4 h-4 ml-0.5 relative">
+        {isFixing ? (
+          <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-500 flex-shrink-0" />
+        ) : (
+          <Sparkles className="w-3.5 h-3.5 text-amber-500 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0" />
+        )}
+      </span>
 
-      {/* Floating Sparkles Quick AI Fix trigger */}
-      <div className="absolute top-2 right-2 flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 z-20">
-        <button
-          type="button"
-          onClick={handleAiFixClick}
-          disabled={isFixing}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-800 text-white rounded-lg font-black font-mono text-[10px] uppercase tracking-wider shadow-lg cursor-pointer transition-all active:scale-95 text-xs"
-          title="Instantly analyze and correct math syntax with AI"
-        >
-          {isFixing ? (
-            <>
-              <RefreshCw className="w-3 h-3 animate-spin text-pink-300" />
-              <span>Emending LaTeX...</span>
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-3 h-3 text-pink-300 animate-pulse" />
-              <span>AI Fix Formula</span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Inline success feedback */}
+      {/* Inline success feedback tooltip */}
       {fixSuccess && (
-        <span className="absolute bottom-2 right-2 text-[10px] font-black uppercase font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded">
+        <span className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-emerald-600 text-white text-[10px] uppercase font-bold rounded shadow-lg z-50 whitespace-nowrap">
           {fixSuccess}
         </span>
       )}
 
-      {/* Inline error feedback */}
+      {/* Inline local errors */}
       {localError && (
-        <span className="absolute bottom-2 right-2 text-[10px] font-medium font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2.5 py-1 rounded max-w-xs transition-all">
+        <span className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-rose-600 text-white text-[10px] uppercase font-bold rounded shadow-lg z-50 whitespace-nowrap">
           {localError}
         </span>
       )}
-    </div>
+    </span>
   );
 };
