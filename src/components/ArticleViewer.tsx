@@ -4,7 +4,7 @@ import parse from 'html-react-parser';
 import katex from 'katex';
 import { SafeMath } from './SafeMath';
 import { MCQComponent } from './MCQComponent';
-import { EnhancedNote, generateExamQuestions, MCQ, generateBespokeExamSections, BespokeSection, fixAllLaTeXInDocument, healDocumentFormulaWithAI } from '../services/geminiService';
+import { EnhancedNote, generateExamQuestions, MCQ, generateBespokeExamSections, BespokeSection, fixAllLaTeXInDocument, healDocumentFormulaWithAI, fixLaTeXEquation } from '../services/geminiService';
 import { saveNotebook, EnhancedNotebook } from '../services/db';
 import { SYLLABUS } from '../data/syllabus';
 
@@ -357,6 +357,136 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     return errors;
   }, [note.htmlContent, note.mcqs]);
 
+  // Single live editor formula fixing state
+  const [isFixingFormulaId, setIsFixingFormulaId] = useState<string | null>(null);
+
+  // Scan live editor html text area content for LaTeX errors
+  const liveEditorLaTeXErrors = useMemo(() => {
+    const errors: { id: string; math: string; displayMode: boolean; errorMsg: string; rawBlock: string }[] = [];
+    if (!editContent) return errors;
+
+    const checkLaTeX = (math: string, displayMode: boolean, rawBlock: string, id: string) => {
+      const cleaned = cleanLaTeX(math);
+      if (!cleaned.trim()) return;
+      try {
+        katex.renderToString(cleaned, { throwOnError: true, displayMode });
+      } catch (err: any) {
+        errors.push({
+          id,
+          math: cleaned,
+          displayMode,
+          errorMsg: err?.message || "KaTeX formatting error",
+          rawBlock
+        });
+      }
+    };
+
+    // Split blocks based on double dollars
+    const blocks = editContent.split(/(?<!\\)\$\$([\s\S]+?)(?<!\\)\$\$/g);
+    blocks.forEach((block, idx) => {
+      if (idx % 2 === 1) { // inside block math
+        checkLaTeX(block, true, `$$${block}$$`, `live-block-${idx}`);
+      } else {
+        const parts = block.split(/(?<!\\)\$([^\$]+?)(?<!\\)\$/g);
+        parts.forEach((part, idx2) => {
+          if (idx2 % 2 === 1) { // inside inline math
+            checkLaTeX(part, false, `$${part}$`, `live-inline-${idx}-${idx2}`);
+          }
+        });
+      }
+    });
+
+    return errors;
+  }, [editContent]);
+
+  // Handle single formula repair with AI in real-time in the editor textarea
+  const handleFixSingleLiveFormulaInEditor = async (id: string, badFormula: string, displayMode: boolean, errMsg: string) => {
+    setIsFixingFormulaId(id);
+    try {
+      setCustomRoadmapSuccess("Calling AI Doctor to correct this specific equation...");
+      const fixed = await fixLaTeXEquation(badFormula, errMsg);
+      
+      // Update editContent
+      let updatedContent = editContent;
+      const delimiter = displayMode ? "$$" : "$";
+      const exactRaw = `${delimiter}${badFormula}${delimiter}`;
+      const exactFixed = `${delimiter}${fixed}${delimiter}`;
+      
+      if (updatedContent.includes(exactRaw)) {
+        updatedContent = updatedContent.replace(exactRaw, exactFixed);
+      } else if (updatedContent.includes(badFormula)) {
+        updatedContent = updatedContent.replace(badFormula, fixed);
+      } else {
+        // Fallback: simple text replacement via normalization
+        const parts = updatedContent.split(exactRaw);
+        if (parts.length > 1) {
+          updatedContent = parts.join(exactFixed);
+        } else {
+          // ultra-fuzzy find and replace
+          const normalizeStr = (s: string) => s.replace(/[\s\n\r\t\$\\]/g, '').toLowerCase();
+          const normalizedBad = normalizeStr(badFormula);
+          
+          let found = false;
+          // Look for matching substring when ignoring spaces/backslashes
+          for (let i = 0; i < updatedContent.length; i++) {
+            const sliced = updatedContent.substring(i);
+            const tryLen = Math.min(sliced.length, badFormula.length * 3 + 20);
+            const trySubstr = sliced.substring(0, tryLen);
+            if (normalizeStr(trySubstr).startsWith(normalizedBad)) {
+              let currentNormalize = "";
+              let charCount = 0;
+              for (let j = 0; j < trySubstr.length; j++) {
+                const c = trySubstr[j];
+                if (!/[\s\n\r\t\$\\]/.test(c)) {
+                  currentNormalize += c.toLowerCase();
+                }
+                charCount = j + 1;
+                if (currentNormalize === normalizedBad) {
+                  break;
+                }
+              }
+              updatedContent = updatedContent.substring(0, i) + fixed + updatedContent.substring(i + charCount);
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            throw new Error("Could not automatically locate the equation coordinates. Feel free to copy/paste directly.");
+          }
+        }
+      }
+      
+      setEditContent(updatedContent);
+      setCustomRoadmapSuccess(`✅ Formula corrected to: ${fixed}`);
+      setTimeout(() => setCustomRoadmapSuccess(null), 3000);
+    } catch (err: any) {
+      alert(`Could not automatically edit: ${err?.message || err}`);
+    } finally {
+      setIsFixingFormulaId(null);
+    }
+  };
+
+  // Complete clean sweep correction inside the active editing text area
+  const handleFixAllLaTeXLoneInEditor = async () => {
+    if (isFixingAll) return;
+    setIsFixingAll(true);
+    setErrorMessage(null);
+    try {
+      setCustomRoadmapSuccess("Calling AI Math Doctor to scan and correct every single layout error inside the text editor...");
+      const result = await fixAllLaTeXInDocument(editTitle, editContent, note.mcqs);
+      
+      setEditContent(result.htmlContent);
+      setCustomRoadmapSuccess("✅ All LaTeX mathematical equations healed inside the editor! Verify and Save changes below.");
+      alert("AI has processed the mathematical formulas across your lesson! Review the cleaned formulas, then hit 'Save Changes' to commit.");
+      setTimeout(() => setCustomRoadmapSuccess(null), 5000);
+    } catch (err: any) {
+      console.error("AI automated diagnostics healing failed:", err);
+      alert(`AI doctors failed to heal formulas: ${err?.message || err}`);
+    } finally {
+      setIsFixingAll(false);
+    }
+  };
+
   // Master command to fix all LaTeX syntax anomalies on note content and questions
   const handleFixAllLaTeX = async () => {
     if (isFixingAll) return;
@@ -540,7 +670,16 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
       setCustomRoadmapSuccess("LaTeX formula fixed and saved successfully!");
       setTimeout(() => setCustomRoadmapSuccess(null), 3500);
     } else {
-      alert("Could not find the target formula inside the page or questions to perform automated replacement.");
+      // Opening editor workspace where the user / AI has robust controls!
+      const confirmOpen = window.confirm(
+        "Could not automatically locate this equation within the formatted HTML page.\n\n" +
+        "Would you like us to open the Master LaTeX Diagnostics Editor Workspace where you can interactively view, auto-repair, and save all formulas directly?"
+      );
+      if (confirmOpen) {
+        setEditTitle(note.title);
+        setEditContent(note.htmlContent);
+        setIsEditing(true);
+      }
     }
   };
 
@@ -1360,55 +1499,167 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   if (isEditing) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900 px-4 py-8 md:py-12 transition-all">
-        <div className="max-w-4xl mx-auto bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 mb-6">
+        <div className="max-w-7xl mx-auto bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-5 mb-6 gap-3">
             <div>
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white">Edit Vault Lesson</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Modify note content or correct equations directly. Updates will carry through study sheets.</p>
+              <div className="flex items-center gap-2">
+                <span className="p-1 px-2.5 text-[10px] font-black uppercase tracking-wider text-rose-500 bg-rose-50 dark:bg-rose-950/40 rounded-full font-mono">
+                  Master Workspace
+                </span>
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white mt-1">Edit Vault Lesson & Equations</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Modify study content directly and verify KaTeX rendering in real-time with AI diagnostic tools.</p>
             </div>
-            <span className="text-[10px] font-mono bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 px-3 py-1 rounded-full border border-indigo-150">ALT+SHIFT+D TO CLOSE</span>
+            <span className="text-[10px] font-mono bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-full border border-indigo-150">ALT+SHIFT+D TO CLOSE</span>
           </div>
 
-          <div className="space-y-6">
-            <div>
-              <label className="block text-xs font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-2">Notebook Title</label>
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-900 focus:border-indigo-550 rounded-xl px-4 py-2.5 font-bold text-slate-850 dark:text-slate-100"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="block text-xs font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">Notebook Content (HTML / LaTeX)</label>
-                <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-medium font-mono">Use $x$ for inline Math and $$x$$ for block Math</span>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            {/* Left Column: Input Fields / Textarea */}
+            <div className="lg:col-span-7 space-y-6">
+              <div>
+                <label className="block text-xs font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-2">Notebook Title</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-900 focus:border-indigo-550 border border-transparent dark:border-slate-800 rounded-xl px-4 py-2.5 font-bold text-slate-850 dark:text-slate-100"
+                />
               </div>
-              <textarea
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                rows={18}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:border-indigo-500 rounded-2xl px-4 py-3 font-mono text-sm leading-relaxed text-slate-850 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
+
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-xs font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">Notebook Content (HTML / LaTeX)</label>
+                  <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold font-mono">Use $x$ for inline and $$x$$ for block math</span>
+                </div>
+                <textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  rows={18}
+                  placeholder="Paste or write raw HTML / LaTeX lesson formulas here..."
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:border-indigo-505 rounded-2xl px-4 py-3 font-mono text-sm leading-relaxed text-slate-850 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-550"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-150 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-5 py-2.5 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                >
+                  Cancel Edits
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEdits}
+                  className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-750 text-white rounded-xl font-extrabold text-xs shadow hover:shadow-md transition-all cursor-pointer"
+                >
+                  Save Changes (Always)
+                </button>
+              </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-150 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setIsEditing(false)}
-                className="px-5 py-2.5 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-800 transition-all cursor-pointer"
-              >
-                Cancel Edits
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveEdits}
-                className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-750 text-white rounded-xl font-extrabold text-xs shadow hover:shadow-md transition-all cursor-pointer"
-              >
-                Save Changes (Always)
-              </button>
+            {/* Right Column: AI LaTeX Diagnostics / Doctor Console */}
+            <div className="lg:col-span-5 space-y-6 animate-fadeIn">
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-5 sticky top-6 shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="flex-shrink-0 p-1.5 bg-indigo-105 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-lg animate-pulse">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                    </span>
+                    <h3 className="text-sm font-black text-slate-805 dark:text-slate-200 uppercase tracking-wide">
+                      AI LaTeX Doctor
+                    </h3>
+                  </div>
+                  {liveEditorLaTeXErrors.length > 0 ? (
+                    <span className="text-[10px] font-black uppercase bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-405 px-2.5 py-1 rounded-full font-mono animate-pulse">
+                      {liveEditorLaTeXErrors.length} Issue{liveEditorLaTeXErrors.length > 1 ? "s" : ""}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-black uppercase bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-full font-mono">
+                      Healthy
+                    </span>
+                  )}
+                </div>
+
+                {customRoadmapSuccess && (
+                  <div className="mb-4 text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 p-2.5 rounded-xl text-left animate-fadeIn">
+                    {customRoadmapSuccess}
+                  </div>
+                )}
+
+                {editContent && liveEditorLaTeXErrors.length > 0 ? (
+                  <div className="space-y-4">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed text-left">
+                      We scanned the active textarea and pinpointed the mathematical layout errors listed below. You can fix them singularly or run a full sweep correction using AI.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={handleFixAllLaTeXLoneInEditor}
+                      disabled={isFixingAll}
+                      className="w-full py-2.5 bg-gradient-to-r from-red-650 to-rose-650 hover:from-red-750 hover:to-rose-750 disabled:from-slate-300 disabled:to-slate-405 disabled:text-slate-500 text-white text-xs uppercase tracking-wider font-extrabold rounded-xl transition-all shadow hover:shadow-md cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      {isFixingAll ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>AI Sweeping All Faults...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Heal All Formulas in Editor</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="max-h-[350px] overflow-y-auto space-y-3 pr-1.5 scrollbar-thin scrollbar-thumb-slate-300">
+                      {liveEditorLaTeXErrors.map((err, idx) => (
+                        <div key={idx} className="bg-white dark:bg-slate-950 border border-slate-150 dark:border-slate-850 p-3 rounded-xl shadow-xs text-left group">
+                          <div className="flex justify-between items-start gap-2 mb-1.5">
+                            <span className="text-[9px] font-mono font-black text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded">
+                              Equation #{idx + 1} ({err.displayMode ? "Block" : "Inline"})
+                            </span>
+                            
+                            <button
+                              type="button"
+                              onClick={() => handleFixSingleLiveFormulaInEditor(err.id, err.math, err.displayMode, err.errorMsg)}
+                              disabled={isFixingAll || isFixingFormulaId === err.id}
+                              className="text-[9px] font-bold text-indigo-650 dark:text-indigo-400 hover:underline bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded cursor-pointer transition-all disabled:opacity-50"
+                            >
+                              {isFixingFormulaId === err.id ? "Fixing..." : "✨ AI Correct"}
+                            </button>
+                          </div>
+                          
+                          <pre className="text-xs font-mono text-slate-800 dark:text-slate-200 bg-slate-100/50 dark:bg-slate-950 px-2 py-1.5 rounded overflow-x-auto whitespace-pre-wrap break-all border border-slate-100 dark:border-slate-900">
+                            {err.math}
+                          </pre>
+                          
+                          <p className="text-[10px] font-mono text-rose-605 dark:text-rose-400 mt-1 leading-tight italic">
+                            {err.errorMsg}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-12 text-center flex flex-col items-center justify-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-center text-emerald-555 animate-bounce">
+                      <Check className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        Equations Spotless
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-1 max-w-[200px] leading-relaxed mx-auto">
+                        No broken LaTeX syntax detected in the editor content right now!
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
+
           </div>
         </div>
       </div>
