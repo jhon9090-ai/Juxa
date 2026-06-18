@@ -301,10 +301,6 @@ export default function App() {
           >
             <History className="w-5 h-5" />
           </button>
-          
-          <button className="d48 d66 flex items-center justify-center transition-all hover:bg-white/20 cursor-pointer" aria-label="Share">
-            <Share2 className="w-5 h-5" />
-          </button>
         </div>
       </header>
 
@@ -423,9 +419,9 @@ export default function App() {
                 </div>
                 
                 {/* Theme progress pill */}
-                <div className="bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-3 text-center self-stretch md:self-auto flex md:flex-col justify-between items-center whitespace-nowrap">
-                  <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest font-mono">Progress</span>
-                  <span className="text-base font-black text-indigo-950 mt-0.5">
+                <div className="bg-transparent border border-indigo-200 dark:border-indigo-500/30 rounded-2xl px-5 py-3 text-center self-stretch md:self-auto flex md:flex-col justify-between items-center whitespace-nowrap">
+                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest font-mono">Progress</span>
+                  <span className="text-base font-black text-indigo-950 dark:text-indigo-300 mt-0.5">
                     {getThemeProgress(activeTheme).completed} / {getThemeProgress(activeTheme).total} Units Finished
                   </span>
                 </div>
@@ -580,9 +576,6 @@ export default function App() {
                 <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight relative">
                   Juxa Study Vault
                 </h1>
-                <p className="text-slate-400 mt-2 text-sm leading-relaxed relative">
-                  Transform custom curriculum items into highly rigorous textbook entries, styled with dark vector mechanics and interactive assessment checkups.
-                </p>
               </div>
 
               {/* Subjects Bento Grid */}

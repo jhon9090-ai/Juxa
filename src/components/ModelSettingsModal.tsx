@@ -34,9 +34,10 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
   onClose,
   onSettingsSaved
 }) => {
-  const [source, setSource] = useState<"builtin" | "openrouter" | "local">("builtin");
+  const [source, setSource] = useState<"builtin" | "openrouter">("builtin");
   const [apiKey, setApiKey] = useState("");
   const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-pro");
+  const [builtinModel, setBuiltinModel] = useState("gemini-2.5-flash");
   const [showKey, setShowKey] = useState(false);
   
   // OpenRouter models state
@@ -48,13 +49,15 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
   useEffect(() => {
     // Load config from LocalStorage on mount/open
     if (isOpen) {
-      const savedSource = localStorage.getItem("juxa_api_source") as "builtin" | "openrouter" | "local" || "builtin";
+      const savedSource = localStorage.getItem("juxa_api_source") as "builtin" | "openrouter" || "builtin";
       const savedKey = localStorage.getItem("juxa_openrouter_key") || "";
       const savedModel = localStorage.getItem("juxa_openrouter_model") || "google/gemini-2.5-pro";
+      const savedBuiltinModel = localStorage.getItem("juxa_builtin_model") || "gemini-2.5-flash";
 
       setSource(savedSource);
       setApiKey(savedKey);
       setSelectedModel(savedModel);
+      setBuiltinModel(savedBuiltinModel);
 
       // Fetch dynamic models list from OpenRouter API (public endpoint)
       fetchOpenRouterModels();
@@ -92,6 +95,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
     localStorage.setItem("juxa_api_source", source);
     localStorage.setItem("juxa_openrouter_key", apiKey.trim());
     localStorage.setItem("juxa_openrouter_model", selectedModel);
+    localStorage.setItem("juxa_builtin_model", builtinModel);
     
     if (onSettingsSaved) {
       onSettingsSaved();
@@ -168,10 +172,10 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
             {/* Scrollable Form Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               
-              {/* Selector Option: Builtin vs OpenRouter vs Local */}
+              {/* Selector Option: Builtin vs OpenRouter */}
               <div className="space-y-2">
                 <label className="block text-xs font-black uppercase tracking-wider text-slate-400">Select Processing Engine Source</label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   
                   {/* Built-in choice */}
                   <div 
@@ -225,50 +229,56 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                     </p>
                   </div>
 
-                  {/* Local choice */}
-                  <div 
-                    onClick={() => setSource("local")}
-                    className={cn(
-                      "p-4 rounded-2xl border cursor-pointer flex flex-col justify-between transition-all duration-200",
-                      source === "local" 
-                        ? "border-indigo-650 bg-indigo-50/10 ring-2 ring-indigo-650/5 shadow-md"
-                        : "border-slate-200 bg-white hover:border-slate-350"
-                    )}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <Cpu className={cn("w-4 h-4", source === "local" ? "text-indigo-600" : "text-slate-400")} />
-                        <span className="font-bold text-sm text-slate-800">Local AI Model</span>
-                      </div>
-                      {source === "local" && (
-                        <div className="w-4.5 h-4.5 rounded-full bg-indigo-650 flex items-center justify-center text-white">
-                          <Check className="w-3 h-3 stroke-[3]" />
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-450 mt-2.5 leading-relaxed">
-                      Run fully offline Qwen2.5-1.5B local GGUF models via FastAPI on CPU with zero data leaving your machine.
-                    </p>
-                  </div>
-
                 </div>
               </div>
 
-              {/* Local AI operational helper warning */}
-              {source === 'local' && (
-                <div className="p-4 bg-indigo-50/40 border border-indigo-200/50 rounded-2xl flex gap-3 items-start">
-                  <Cpu className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5 animate-pulse" />
-                  <div className="text-xs space-y-1">
-                    <p className="font-bold text-slate-800">Local AI Backend Requirements (FastAPI + GGUF)</p>
-                    <p className="text-slate-500 leading-relaxed">
-                      Ensure your local server is running on <code className="bg-white px-1.5 py-0.5 border border-slate-200 rounded text-slate-700 font-mono">http://127.0.0.1:8000</code> representing the model: <strong className="text-slate-705">Qwen2.5-1.5B-Instruct-Q4_K_M.gguf</strong>.
-                    </p>
-                    <p className="text-amber-600 font-semibold flex items-center gap-1">
-                      ⚠️ CPU generation takes about 10–30 seconds.
-                    </p>
-                  </div>
-                </div>
-              )}
+              {/* Conditional options for Gemini Default API */}
+              <AnimatePresence mode="wait">
+                {source === "builtin" && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="space-y-4 overflow-hidden pt-1"
+                  >
+                    <div className="space-y-3 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40">
+                      <label className="block text-xs font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-400">
+                        Select Google Gemini Model version
+                      </label>
+                      <div className="grid grid-cols-1 gap-2.5">
+                        {[
+                          { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash (Default)", desc: "High-speed multimodal generation with advanced instruction-following capability." },
+                          { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", desc: "Enhanced reasoning, precise styling, and highly detailed mathematical outputs." },
+                          { id: "gemini-3.1-pro-preview", name: "Gemini 3.1 Pro (Preview)", desc: "Next-gen premier reasoning champion for complex math, structured parsing, and STEM proofs." },
+                        ].map((m) => (
+                          <div
+                            key={m.id}
+                            onClick={() => setBuiltinModel(m.id)}
+                            className={cn(
+                              "p-3 rounded-xl border cursor-pointer transition-all duration-150 flex items-start gap-3",
+                              builtinModel === m.id
+                                ? "border-indigo-600 bg-white dark:bg-slate-900 ring-1 ring-indigo-600/30"
+                                : "border-slate-200/60 dark:border-slate-800 bg-transparent hover:border-slate-350 hover:bg-slate-100/30"
+                            )}
+                          >
+                            <input
+                              type="radio"
+                              name="builtin-model"
+                              checked={builtinModel === m.id}
+                              onChange={() => {}}
+                              className="mt-1 accent-indigo-650"
+                            />
+                            <div className="flex-1">
+                              <p className="font-bold text-xs text-slate-850 dark:text-slate-200">{m.name}</p>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-450 mt-0.5 leading-relaxed">{m.desc}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Conditional options for OpenRouter API */}
               <AnimatePresence mode="wait">

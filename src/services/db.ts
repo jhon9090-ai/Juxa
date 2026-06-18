@@ -4,6 +4,7 @@ export interface EnhancedNotebook extends EnhancedNote {
   id: string;
   createdAt: number;
   unitId?: string;
+  pinned?: boolean;
 }
 
 const DB_NAME = "PhyleyNotesOfflineDB";
@@ -33,7 +34,7 @@ export function initDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveNotebook(note: EnhancedNote & { unitId?: string }, id?: string): Promise<EnhancedNotebook> {
+export async function saveNotebook(note: EnhancedNote & { id?: string; createdAt?: number; unitId?: string; pinned?: boolean }, id?: string): Promise<EnhancedNotebook> {
   const db = await initDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], "readwrite");
@@ -41,10 +42,11 @@ export async function saveNotebook(note: EnhancedNote & { unitId?: string }, id?
 
     const notebook: EnhancedNotebook = {
       ...note,
-      id: id || Date.now().toString(),
-      createdAt: Date.now(),
-      unitId: note.unitId
-    };
+      id: id || note.id || Date.now().toString(),
+      createdAt: note.createdAt || Date.now(),
+      unitId: note.unitId,
+      pinned: note.pinned === undefined ? false : note.pinned
+    } as EnhancedNotebook;
 
     const request = store.put(notebook);
 
@@ -67,8 +69,15 @@ export async function getAllNotebooks(): Promise<EnhancedNotebook[]> {
 
     request.onsuccess = () => {
       const results = request.result as EnhancedNotebook[];
-      // Sort in descending order of creation (most recent first)
-      resolve(results.sort((a, b) => b.createdAt - a.createdAt));
+      // Sort: pinned first, then by createdAt descending
+      resolve(results.sort((a, b) => {
+        const pinA = a.pinned ? 1 : 0;
+        const pinB = b.pinned ? 1 : 0;
+        if (pinB !== pinA) {
+          return pinB - pinA;
+        }
+        return b.createdAt - a.createdAt;
+      }));
     };
 
     request.onerror = () => {

@@ -1860,6 +1860,16 @@ svg {
     display: block;
 }
 
+/* Ensure absolute-positioned SVGs inside d50 ratio containers keep correct heights and layout dimensions */
+.prose .d50 svg {
+    height: 100% !important;
+    width: 100% !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    margin: 0 !important;
+}
+
 /* Base print formatting to ensure beautiful textbook outcome */
 @media print {
     body {

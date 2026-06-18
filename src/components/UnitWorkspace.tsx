@@ -172,6 +172,12 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
     const wordCount = existingNotebook.htmlContent.replace(/<[^>]*>/g, "").split(/\s+/).filter(Boolean).length;
     const mcqCount = existingNotebook.mcqs ? existingNotebook.mcqs.length : 0;
     
+    // Calculate estimated completion study time based on subtopics (h2 tags, fallback 10)
+    const h2Matches = existingNotebook.htmlContent.match(/<h2[^>]*>/gi);
+    const subtopicCount = h2Matches && h2Matches.length > 0 ? h2Matches.length : 10;
+    const minCompletionTime = subtopicCount * 1;
+    const maxCompletionTime = subtopicCount * 2;
+    
     return (
       <div className="max-w-3xl mx-auto px-4 md:px-0 py-6" id="unit-workspace-active">
         {/* Core Unit Header card */}
@@ -220,8 +226,8 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
               {/* Note Metadata and Counts */}
               <div className="flex flex-wrap gap-4 text-xs text-slate-300 mt-4">
                 <div className="flex items-center gap-1.5 bg-white/5 px-2.5 py-1.5 rounded-xl border border-white/10">
-                  <BookOpen className="w-3.5 h-3.5 text-indigo-350" />
-                  <span>~{wordCount} words fully written</span>
+                  <Clock className="w-3.5 h-3.5 text-indigo-350" />
+                  <span>Course Estimated: {minCompletionTime}h – {maxCompletionTime}h total study</span>
                 </div>
                 <div className="flex items-center gap-1.5 bg-white/5 px-2.5 py-1.5 rounded-xl border border-white/10">
                   <HelpCircle className="w-3.5 h-3.5 text-pink-400" />
@@ -238,7 +244,7 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={() => onOpenNotebook(existingNotebook)}
-                className="flex items-center justify-center gap-2 bg-white text-indigo-950 hover:bg-slate-50 active:scale-[0.98] transition-all px-6 py-3.5 rounded-2xl font-black text-sm cursor-pointer shadow"
+                className="flex items-center justify-center gap-2 bg-white/10 text-white border border-white/20 hover:bg-white/20 active:scale-[0.98] transition-all px-6 py-3.5 rounded-2xl font-black text-sm cursor-pointer shadow-sm"
               >
                 <span>Read Textbook Lesson</span>
                 <ChevronRight className="w-4 h-4" />

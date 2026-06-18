@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Trash2, BookOpen, Clock, AlertCircle, HelpCircle } from 'lucide-react';
-import { getAllNotebooks, deleteNotebook, EnhancedNotebook } from '../services/db';
+import { X, Search, Trash2, BookOpen, Clock, AlertCircle, HelpCircle, Pin } from 'lucide-react';
+import { getAllNotebooks, deleteNotebook, saveNotebook, EnhancedNotebook } from '../services/db';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -49,6 +49,25 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
       } catch (err: any) {
         alert(err?.message || "Could not delete the notebook.");
       }
+    }
+  };
+
+  const handleTogglePin = async (notebook: EnhancedNotebook, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const updated = { ...notebook, pinned: !notebook.pinned };
+      await saveNotebook(updated);
+      setNotebooks(prev => {
+        const mapped = prev.map(nb => nb.id === notebook.id ? updated : nb);
+        return mapped.sort((a, b) => {
+          const pinA = a.pinned ? 1 : 0;
+          const pinB = b.pinned ? 1 : 0;
+          if (pinB !== pinA) return pinB - pinA;
+          return b.createdAt - a.createdAt;
+        });
+      });
+    } catch (err: any) {
+      alert(err?.message || "Failed to toggle pin state");
     }
   };
 
@@ -162,10 +181,11 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <h4 className={cn(
-                            "font-bold text-sm tracking-tight truncate",
+                            "font-bold text-sm tracking-tight truncate flex items-center gap-1.5",
                             isActive ? "text-indigo-600" : "text-slate-800"
                           )}>
-                            {notebook.title}
+                            {notebook.pinned && <Pin className="w-3.5 h-3.5 text-amber-500 fill-current rotate-45 flex-shrink-0" />}
+                            <span className="truncate">{notebook.title}</span>
                           </h4>
                           
                           <div className="flex items-center gap-2.5 mt-1.5 text-xs text-slate-400">
@@ -189,14 +209,30 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={(e) => handleDelete(notebook.id, e)}
-                          className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-rose-50 rounded-lg transition-all flex-shrink-0"
-                          title="Permanently remove note"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => handleTogglePin(notebook, e)}
+                            className={cn(
+                              "p-1.5 rounded-lg transition-all cursor-pointer",
+                              notebook.pinned
+                                ? "opacity-100 text-amber-500 bg-amber-50"
+                                : "opacity-0 group-hover:opacity-100 text-slate-400 hover:text-amber-500 hover:bg-amber-50"
+                            )}
+                            title={notebook.pinned ? "Unpin notebook" : "Pin notebook to top"}
+                          >
+                            <Pin className="w-4 h-4 fill-current rotate-45" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleDelete(notebook.id, e)}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                            title="Permanently remove note"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
