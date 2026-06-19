@@ -719,5 +719,78 @@ ${JSON.stringify(mcqs)}`;
   return parsed as { htmlContent: string; mcqs: any[] };
 }
 
+export async function splitOutlineForUnits(
+  bulkOutline: string,
+  units: { id: string; name: string }[],
+  themeName: string
+): Promise<Record<string, string>> {
+  const source = localStorage.getItem("juxa_api_source") || "builtin";
+  const systemPrompt = `You are a curriculum structuring assistant specialist.
+We have a set of units we want to generate detailed class notes and lesson materials for under the theme: "${themeName}".
+Here are the specific target units:
+${JSON.stringify(units, null, 2)}
+
+The user has uploaded or pasted a raw document containing outlines, syllabus descriptors, notes, or lesson guide structures for these units:
+--------------------
+${bulkOutline}
+--------------------
+
+Your task is to analyze this raw text and segment it, distributing the outline details and syllabus guidance into specific individual segments associated with each Unit ID.
+CRITICAL INSTRUCTIONS:
+1. Try to align the provided paragraphs, headings, list points, or details to the respective units (matching by conceptual keywords or titles).
+2. For each unit, extract the most relevant and helpful curriculum outline segment.
+3. If the user provided content did not specify details for certain units, parse standard high-school or test-prep level specifications for that unit's topics to ensure a high-quality educational baseline.
+4. Keep the text concise but descriptive so that it can be passed as prompt context to generate full, detailed textbooks for each unit.
+5. Return your response STRICTLY as a valid JSON object where keys are the exact unit IDs, and values are the corresponding outline texts. Do not wrap in markdown or any other wrappers.
+
+Example return structure:
+{
+  "unit-id-1": "Specific outline details...",
+  "unit-id-2": "..."
+}`;
+
+  let jsonText = "";
+
+  if (source === "openrouter") {
+    const key = localStorage.getItem("juxa_openrouter_key");
+    const model = localStorage.getItem("juxa_openrouter_model") || "google/gemini-2.5-pro";
+    if (!key || !key.trim()) {
+      throw new Error("API Key missing: Please add your OpenRouter connection key in settings.");
+    }
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: "user", content: systemPrompt }],
+        response_format: { type: "json_object" }
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`OpenRouter returned status ${response.status}`);
+    }
+    const data = await response.json();
+    jsonText = data.choices?.[0]?.message?.content || "";
+  } else {
+    // Built-in Gemini
+    const response = await ai.models.generateContent({
+      model: getBuiltinModel(),
+      contents: systemPrompt,
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+    jsonText = response.text || "";
+  }
+
+  const cleaned = jsonText.trim().replace(/^```json\s*|```$/g, "").trim();
+  const parsed = JSON.parse(cleaned);
+  return parsed as Record<string, string>;
+}
+
+
 
 
