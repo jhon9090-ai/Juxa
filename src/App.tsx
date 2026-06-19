@@ -3,6 +3,7 @@ import { ArticleViewer } from './components/ArticleViewer';
 import { LibraryDrawer } from './components/LibraryDrawer';
 import { ModelSettingsModal } from './components/ModelSettingsModal';
 import { UnitWorkspace } from './components/UnitWorkspace';
+import { BulkGenerator } from './components/BulkGenerator';
 import { enhanceNote, EnhancedNote } from './services/geminiService';
 import { saveNotebook, getAllNotebooks, deleteNotebook, EnhancedNotebook } from './services/db';
 import { SYLLABUS, Subject, Theme, Unit } from './data/syllabus';
@@ -57,6 +58,7 @@ export default function App() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeModelName, setActiveModelName] = useState("Gemini (Built-In)");
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
 
   // Dark Mode State with local persistence
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -427,6 +429,27 @@ export default function App() {
                 </div>
               </div>
 
+              {(activeSubject.id === "english" || activeSubject.id === "sat") && (
+                <div className="bg-gradient-to-r from-purple-500/10 via-pink-400/5 to-transparent border border-purple-200 dark:border-purple-900/40 p-4 md:p-5 rounded-2.5xl mb-8 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-fadeIn">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-purple-50 dark:bg-purple-950/40 text-purple-650 dark:text-purple-400 rounded-xl flex items-center justify-center flex-shrink-0 animate-pulse">
+                      <Sparkles className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div className="text-left">
+                      <h4 className="text-sm font-black text-slate-850 dark:text-slate-100">Bulk Generation Available</h4>
+                      <p className="text-xs text-slate-400 dark:text-slate-400">Fast-track this topic by uploading a complete index outline, PDF or list for all units.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsBulkOpen(true)}
+                    className="w-full sm:w-auto px-5 py-2 md:py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-650 hover:to-purple-700 text-white font-extrabold text-xs font-mono uppercase tracking-widest rounded-xl shadow hover:shadow-md hover:scale-[1.02] cursor-pointer transition-all flex items-center justify-center gap-2 whitespace-nowrap"
+                  >
+                    <span>Generate all at once</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
               {/* Units Checklist Grid */}
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest font-mono mb-4">Units Listing</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -683,6 +706,18 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         onSettingsSaved={updateActiveModelName}
       />
+
+      {isBulkOpen && activeSubject && activeTheme && (
+        <BulkGenerator
+          subjectName={activeSubject.name}
+          themeName={activeTheme.name}
+          units={activeTheme.units}
+          onClose={() => setIsBulkOpen(false)}
+          onComplete={async () => {
+            await loadVaultNotebooks();
+          }}
+        />
+      )}
 
       {/* Footer */}
       <footer className="py-6 mt-auto"></footer>
