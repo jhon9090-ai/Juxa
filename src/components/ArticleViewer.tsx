@@ -487,6 +487,87 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     }
   };
 
+  // Convert special interactive preview markers back to placeholder nodes
+  const previewProcessedHtml = useMemo(() => {
+    let processed = editContent.replace(/\[\[MCQ:([\w-]+)\]\]/g, '<mcq-placeholder data-id="$1"></mcq-placeholder>');
+    processed = processed.replace(/(?<!\\)\$\$([\s\S]+?)(?<!\\)\$\$/g, '<div class="d101">$1</div>');
+    processed = processed.replace(/(?<!\\)\$([^\$]+?)(?<!\\)\$/g, '<span class="katex">$1</span>');
+    return processed;
+  }, [editContent]);
+
+  const handleFixPreviewFormula = async (badFormula: string, fixedFormula: string, isBlock: boolean) => {
+    let updatedContent = editContent;
+    const delimiter = isBlock ? "$$" : "$";
+    const exactRaw = `${delimiter}${badFormula}${delimiter}`;
+    const exactFixed = `${delimiter}${fixedFormula}${delimiter}`;
+
+    if (updatedContent.includes(exactRaw)) {
+      updatedContent = updatedContent.replace(exactRaw, exactFixed);
+    } else if (updatedContent.includes(badFormula)) {
+      updatedContent = updatedContent.replace(badFormula, fixedFormula);
+    } else {
+      const parts = updatedContent.split(exactRaw);
+      if (parts.length > 1) {
+        updatedContent = parts.join(exactFixed);
+      } else {
+        updatedContent = updatedContent.replaceAll(badFormula, fixedFormula);
+      }
+    }
+    setEditContent(updatedContent);
+    setCustomRoadmapSuccess(`✅ Healed and replaced formula in preview: ${fixedFormula}`);
+    setTimeout(() => setCustomRoadmapSuccess(null), 3000);
+  };
+
+  const previewFinalOptions: HTMLReactParserOptions = {
+    replace: (domNode) => {
+      if (domNode instanceof Element) {
+        if (domNode.name === 'mcq-placeholder') {
+          const id = domNode.attribs['data-id'];
+          const mcq = note.mcqs.find(m => m.id === id);
+          if (mcq) {
+            return <MCQComponent mcq={mcq} />;
+          }
+        }
+
+        if (domNode.attribs && domNode.attribs.class && domNode.attribs.class.includes('d101')) {
+          const textContent = getTextFromNode(domNode);
+          if (textContent.trim()) {
+            const cleanMath = cleanLaTeX(textContent);
+            return (
+              <div className="d101 flex justify-center py-4 text-center w-full">
+                <SafeMath 
+                  math={cleanMath} 
+                  displayMode={true} 
+                  onFix={async (fixedMath) => {
+                    await handleFixPreviewFormula(cleanMath, fixedMath, true);
+                  }}
+                />
+              </div>
+            );
+          }
+        }
+
+        if (domNode.attribs && domNode.attribs.class && domNode.attribs.class.includes('katex')) {
+          const textContent = getTextFromNode(domNode);
+          if (textContent.trim()) {
+            const cleanMath = cleanLaTeX(textContent);
+            return (
+              <span className="katex mx-1">
+                <SafeMath 
+                  math={cleanMath} 
+                  displayMode={false} 
+                  onFix={async (fixedMath) => {
+                    await handleFixPreviewFormula(cleanMath, fixedMath, false);
+                  }}
+                />
+              </span>
+            );
+          }
+        }
+      }
+    }
+  };
+
   // Master command to fix all LaTeX syntax anomalies on note content and questions
   const handleFixAllLaTeX = async () => {
     if (isFixingAll) return;
@@ -1558,106 +1639,86 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
                 </button>
               </div>
             </div>
-
-            {/* Right Column: AI LaTeX Diagnostics / Doctor Console */}
+                        {/* Right Column: Live Render & Direct Comparison */}
             <div className="lg:col-span-5 space-y-6 animate-fadeIn">
-              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-5 sticky top-6 shadow-sm">
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="flex-shrink-0 p-1.5 bg-indigo-105 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-lg animate-pulse">
-                      <Sparkles className="w-4 h-4 text-amber-500" />
-                    </span>
-                    <h3 className="text-sm font-black text-slate-805 dark:text-slate-200 uppercase tracking-wide">
+              
+              {/* Dynamic Toolbar with AI Doctor Button */}
+              <div className="bg-slate-55 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2.5xl p-4 md:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="flex-shrink-0 p-2 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-100/30">
+                    <Sparkles className="w-5 h-5 text-amber-500" />
+                  </span>
+                  <div className="text-left font-sans">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       AI LaTeX Doctor
                     </h3>
+                    {liveEditorLaTeXErrors.length > 0 ? (
+                      <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 mt-0.5">
+                        <span className="inline-block w-1.5 h-1.5 bg-rose-600 rounded-full animate-ping"></span>
+                        {liveEditorLaTeXErrors.length} Formatting Error{liveEditorLaTeXErrors.length > 1 ? "s" : ""}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 block mt-0.5">
+                        Equations Spotless & Healthy
+                      </span>
+                    )}
                   </div>
-                  {liveEditorLaTeXErrors.length > 0 ? (
-                    <span className="text-[10px] font-black uppercase bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-405 px-2.5 py-1 rounded-full font-mono animate-pulse">
-                      {liveEditorLaTeXErrors.length} Issue{liveEditorLaTeXErrors.length > 1 ? "s" : ""}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-black uppercase bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-full font-mono">
-                      Healthy
-                    </span>
-                  )}
                 </div>
 
-                {customRoadmapSuccess && (
-                  <div className="mb-4 text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 p-2.5 rounded-xl text-left animate-fadeIn">
-                    {customRoadmapSuccess}
-                  </div>
-                )}
-
-                {editContent && liveEditorLaTeXErrors.length > 0 ? (
-                  <div className="space-y-4">
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed text-left">
-                      We scanned the active textarea and pinpointed the mathematical layout errors listed below. You can fix them singularly or run a full sweep correction using AI.
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={handleFixAllLaTeXLoneInEditor}
-                      disabled={isFixingAll}
-                      className="w-full py-2.5 bg-gradient-to-r from-red-650 to-rose-650 hover:from-red-750 hover:to-rose-750 disabled:from-slate-300 disabled:to-slate-405 disabled:text-slate-500 text-white text-xs uppercase tracking-wider font-extrabold rounded-xl transition-all shadow hover:shadow-md cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      {isFixingAll ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>AI Sweeping All Faults...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>Heal All Formulas in Editor</span>
-                        </>
-                      )}
-                    </button>
-
-                    <div className="max-h-[350px] overflow-y-auto space-y-3 pr-1.5 scrollbar-thin scrollbar-thumb-slate-300">
-                      {liveEditorLaTeXErrors.map((err, idx) => (
-                        <div key={idx} className="bg-white dark:bg-slate-950 border border-slate-150 dark:border-slate-850 p-3 rounded-xl shadow-xs text-left group">
-                          <div className="flex justify-between items-start gap-2 mb-1.5">
-                            <span className="text-[9px] font-mono font-black text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded">
-                              Equation #{idx + 1} ({err.displayMode ? "Block" : "Inline"})
-                            </span>
-                            
-                            <button
-                              type="button"
-                              onClick={() => handleFixSingleLiveFormulaInEditor(err.id, err.math, err.displayMode, err.errorMsg)}
-                              disabled={isFixingAll || isFixingFormulaId === err.id}
-                              className="text-[9px] font-bold text-indigo-650 dark:text-indigo-400 hover:underline bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded cursor-pointer transition-all disabled:opacity-50"
-                            >
-                              {isFixingFormulaId === err.id ? "Fixing..." : "✨ AI Correct"}
-                            </button>
-                          </div>
-                          
-                          <pre className="text-xs font-mono text-slate-800 dark:text-slate-200 bg-slate-100/50 dark:bg-slate-950 px-2 py-1.5 rounded overflow-x-auto whitespace-pre-wrap break-all border border-slate-100 dark:border-slate-900">
-                            {err.math}
-                          </pre>
-                          
-                          <p className="text-[10px] font-mono text-rose-605 dark:text-rose-400 mt-1 leading-tight italic">
-                            {err.errorMsg}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="py-12 text-center flex flex-col items-center justify-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-center text-emerald-555 animate-bounce">
-                      <Check className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                        Equations Spotless
-                      </h4>
-                      <p className="text-[11px] text-slate-400 mt-1 max-w-[200px] leading-relaxed mx-auto">
-                        No broken LaTeX syntax detected in the editor content right now!
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={handleFixAllLaTeXLoneInEditor}
+                  disabled={isFixingAll}
+                  title="Correct all formula and syntax format errors instantly"
+                  className={`px-5 py-2.5 text-xs uppercase tracking-wider font-extrabold rounded-xl transition-all shadow hover:shadow-md cursor-pointer flex items-center justify-center gap-2 ${
+                    liveEditorLaTeXErrors.length > 0
+                      ? 'bg-gradient-to-r from-red-600 to-rose-650 hover:from-red-700 hover:to-rose-750 text-white animate-pulse'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                  }`}
+                >
+                  {isFixingAll ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>HEALING...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="w-3.5 h-3.5 text-pink-400" />
+                      <span>Heal All Formulas</span>
+                    </>
+                  )}
+                </button>
               </div>
+
+              {customRoadmapSuccess && (
+                <div className="text-xs font-bold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 p-3 rounded-2xl text-left animate-fadeIn">
+                  {customRoadmapSuccess}
+                </div>
+              )}
+
+              {/* 1:1 Clean Note Preview Container */}
+              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl max-h-[700px] overflow-y-auto shadow-md text-left scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-800">
+                <style>{`
+                  /* Match exactly standard layout folding effects */
+                  .juxa-note-container.is-folded > *:not(h1):not(h2):not(h3) {
+                    display: none !important;
+                  }
+                `}</style>
+                <div className="border-b border-slate-105 dark:border-slate-800 pb-4 mb-5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-50 dark:bg-slate-900/60 px-2.5 py-1 rounded font-mono">
+                    Direct Live Preview Comparison
+                  </span>
+                  <h1 className="text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight mt-2 mb-0">
+                    {editTitle || "(Untitled Notebook Title)"}
+                  </h1>
+                </div>
+
+                {/* Notebook Body Content - Live Parser */}
+                <div className={`juxa-note-container prose prose-slate dark:prose-invert max-w-none ${isFolded ? 'is-folded' : ''}`}>
+                  {parse(previewProcessedHtml, previewFinalOptions)}
+                </div>
+              </div>
+
             </div>
 
           </div>
