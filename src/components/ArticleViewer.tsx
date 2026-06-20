@@ -4,7 +4,7 @@ import parse from 'html-react-parser';
 import katex from 'katex';
 import { SafeMath } from './SafeMath';
 import { MCQComponent } from './MCQComponent';
-import { EnhancedNote, generateExamQuestions, MCQ, generateBespokeExamSections, BespokeSection, fixAllLaTeXInDocument, healDocumentFormulaWithAI, fixLaTeXEquation } from '../services/geminiService';
+import { EnhancedNote, generateExamQuestions, MCQ, generateBespokeExamSections, BespokeSection, fixAllLaTeXInDocument, healDocumentFormulaWithAI, fixLaTeXEquation, continueNote } from '../services/geminiService';
 import { saveNotebook, EnhancedNotebook } from '../services/db';
 import { SYLLABUS } from '../data/syllabus';
 
@@ -78,6 +78,23 @@ function getHeaderSectionsFromHtml(html: string, fallbackTitle: string): Bespoke
   return sections;
 }
 
+function isNoteIncomplete(htmlContent: string): boolean {
+  if (!htmlContent) return false;
+  const trimmed = htmlContent.trim();
+  
+  // 1. Ends with alphabet letters, numbers, spaces, commas, hyphens or unclosed bracket symbols (not punctuation like .?! or closing tag >)
+  const matchesAbruptEnd = /[A-Za-z0-9,\-\(\s]$/.test(trimmed);
+  
+  // 2. Ends inside an HTML tag structure
+  const matchesUnclosedTag = /<[a-zA-Z0-9\-\s"=':]+$/.test(trimmed);
+  
+  // 3. Unbalanced open elements, but only if they are significantly unbalanced at the end, typical of truncated outputs
+  const hasMultipleOpenDivs = (trimmed.match(/<div/gi) || []).length > (trimmed.match(/<\/div/gi) || []).length;
+  const hasMultipleOpenParagraphs = (trimmed.match(/<p/gi) || []).length > (trimmed.match(/<\/p/gi) || []).length;
+  
+  return matchesAbruptEnd || matchesUnclosedTag || hasMultipleOpenDivs || hasMultipleOpenParagraphs;
+}
+
 import { 
   Printer, FileDown, RefreshCw, GraduationCap, Award, 
   ChevronRight, ArrowLeft, Brain, Check, X, CheckSquare, 
@@ -119,6 +136,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   const [editContent, setEditContent] = useState(note.htmlContent);
   const [isFolded, setIsFolded] = useState(false);
   const [historyStack, setHistoryStack] = useState<string[]>([]);
+  const [isContinuing, setIsContinuing] = useState(false);
 
   // Load persistent progress on note change
   useEffect(() => {
@@ -565,6 +583,69 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
           }
         }
       }
+    }
+  };
+
+  const handleContinueNote = async () => {
+    if (isContinuing) return;
+    setIsContinuing(true);
+    setErrorMessage(null);
+
+    try {
+      let unitContext: any = undefined;
+      const savedUnitId = note.unitId;
+      if (savedUnitId) {
+        for (const subj of SYLLABUS) {
+          for (const theme of subj.themes) {
+            const matchedUnit = theme.units.find(u => u.id === savedUnitId);
+            if (matchedUnit) {
+              unitContext = {
+                subjectName: subj.name,
+                themeName: theme.name,
+                unitName: matchedUnit.name
+              };
+              break;
+            }
+          }
+          if (unitContext) break;
+        }
+      }
+
+      // Record state for UNDO historical stack, so user can roll back if needed
+      const currentStateString = JSON.stringify({
+        htmlContent: note.htmlContent,
+        mcqs: note.mcqs
+      });
+      setHistoryStack(prev => [...prev, currentStateString]);
+
+      // Call continuation API service
+      const result = await continueNote(note.title, note.htmlContent, unitContext);
+
+      // Append HTML and new MCQs correctly
+      const mergedHtml = note.htmlContent.trim() + " " + result.htmlContinuation.trim();
+      const mergedMcqs = [...note.mcqs, ...result.newMcqs];
+
+      const updatedNotebook = {
+        ...note,
+        htmlContent: mergedHtml,
+        mcqs: mergedMcqs
+      } as EnhancedNotebook;
+
+      // Persist inside storage / indexed DB
+      await saveNotebook(updatedNotebook);
+
+      if (onUpdateNote) {
+        onUpdateNote(updatedNotebook);
+      }
+
+      setCustomRoadmapSuccess("Note continuation generated and appended successfully!");
+      setTimeout(() => setCustomRoadmapSuccess(null), 3500);
+
+    } catch (err: any) {
+      console.error("Failed to continue note:", err);
+      setErrorMessage(err?.message || "There was an error attempting to resume notes generation. Please try again.");
+    } finally {
+      setIsContinuing(false);
     }
   };
 
@@ -1071,9 +1152,46 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   processedHtml = processedHtml.replace(/(?<!\\)\$\$([\s\S]+?)(?<!\\)\$\$/g, '<div class="d101">$1</div>');
   processedHtml = processedHtml.replace(/(?<!\\)\$([^\$]+?)(?<!\\)\$/g, '<span class="katex">$1</span>');
 
+  const isIncomplete = useMemo(() => isNoteIncomplete(note.htmlContent), [note.htmlContent]);
+
+  if (isIncomplete) {
+    const trimmedHtml = processedHtml.trim();
+    if (trimmedHtml.endsWith('</p>')) {
+      processedHtml = trimmedHtml.slice(0, -4) + ' <continue-placeholder></continue-placeholder></p>';
+    } else {
+      processedHtml = trimmedHtml + ' <continue-placeholder></continue-placeholder>';
+    }
+  }
+
   const finalOptions: HTMLReactParserOptions = {
     replace: (domNode) => {
       if (domNode instanceof Element) {
+        if (domNode.name === 'continue-placeholder') {
+          return (
+            <span className="inline-flex items-center ml-2 select-none align-baseline">
+              <button
+                type="button"
+                onClick={handleContinueNote}
+                disabled={isContinuing}
+                className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold font-mono text-indigo-650 dark:text-indigo-400 hover:text-indigo-750 dark:hover:text-indigo-300 bg-indigo-50/70 hover:bg-indigo-100/70 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/70 border border-indigo-200/50 dark:border-indigo-850 rounded-lg hover:scale-[1.01] transition-all cursor-pointer shadow-sm align-middle h-[18px]"
+                title="The note appears incomplete due to AI generation limits. Click to seamlessly generate and append the remaining sections."
+              >
+                {isContinuing ? (
+                  <>
+                    <RefreshCw className="w-2.5 h-2.5 animate-spin text-indigo-550" />
+                    <span>Continuing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-2.5 h-2.5 text-indigo-555 animate-pulse" />
+                    <span>Continue notes</span>
+                  </>
+                )}
+              </button>
+            </span>
+          );
+        }
+
         if (domNode.name === 'mcq-placeholder') {
           const id = domNode.attribs['data-id'];
           const mcq = note.mcqs.find(m => m.id === id);
