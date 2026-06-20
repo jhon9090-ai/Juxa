@@ -791,6 +791,124 @@ Example return structure:
   return parsed as Record<string, string>;
 }
 
+export async function continueNote(
+  noteTitle: string,
+  htmlContent: string,
+  unitContext?: { subjectName: string; themeName: string; unitName: string }
+): Promise<{ htmlContinuation: string; newMcqs: MCQ[] }> {
+  const source = localStorage.getItem("juxa_api_source") || "builtin";
+  const contextHeader = unitContext 
+    ? `SUBJECT: ${unitContext.subjectName}
+THEME: ${unitContext.themeName}
+UNIT: ${unitContext.unitName} (Target Curriculum Context)`
+    : "General Subject Material";
+
+  const systemPrompt = `You are an expert academic curriculum creator, outstanding textbook author, and elite UI designer.
+We have an academic textbook chapter/lesson note titled "${noteTitle}" on:
+[ ${contextHeader} ]
+
+The note was abruptly cutoff half-way due to output token limits.
+Below is the existing cutoff HTML content so far:
+-------------------------------------
+${htmlContent}
+-------------------------------------
+
+Your task is to analyze this content, figure out where it was cut off (even if it was in the middle of a word, formula, or tag), and generate a perfect, seamless CONTINUATION of the content.
+CRITICAL DIRECTIONS:
+1. Do NOT repeat or paraphrase any introduction or the existing content.
+2. Start generating EXACTLY at the cutoff boundary so that when we append your text to the existing HTML, it acts as a single continuous document.
+3. If the document cut off in the middle of a word, complete that word, or if it cut off in the middle of an HTML tag, complete that tag first.
+4. Continue with the deep-dive academic textbook style (with at least 1500-2500 words of remaining text, covering any leftover syllabus items, complex formulas, diagrams, and summary callouts).
+5. If the cutoff was before all major unit subtopics were fully addressed, cover those subtopics programmatically.
+6. If the cutoff happened before the end elements, conclude the note beautifully with summary lists, highlights, and a final textbook signoff.
+7. Any multiple choice questions (MCQs) that should be placed in this new part of the note must be created and specified in the "newMcqs" array. Use placeholders like [[MCQ:unique_id]] inside your generated HTML continuation.
+8. Maintain the exact same layout patterns (use KaTeX class containers, highlighted callouts "d103", and SVG diagrams as instructed in the original chapter standard).
+9. Return the continuation as a valid JSON object matching the schema below:
+{
+  "htmlContinuation": "string (the perfect, seamless HTML/markup content to append immediately to the end of the existing content)",
+  "newMcqs": [
+    {
+      "id": "string",
+      "question": "string",
+      "options": ["string", "string", ...],
+      "correctAnswerIndex": number,
+      "explanation": "string"
+    }
+  ]
+}
+
+Ensure the output is 100% valid stringified JSON. Do not wrap in markdown or code blocks outside of clean JSON.`;
+
+  let jsonText = "";
+
+  if (source === "openrouter") {
+    const key = localStorage.getItem("juxa_openrouter_key");
+    const model = localStorage.getItem("juxa_openrouter_model") || "google/gemini-2.5-pro";
+    if (!key || !key.trim()) {
+      throw new Error("API Key missing: Please add your OpenRouter connection key in settings.");
+    }
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: "user", content: systemPrompt }],
+        response_format: { type: "json_object" }
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`OpenRouter returned status ${response.status}`);
+    }
+    const data = await response.json();
+    jsonText = data.choices?.[0]?.message?.content || "";
+  } else {
+    // Built-in Gemini
+    const response = await ai.models.generateContent({
+      model: getBuiltinModel(),
+      contents: systemPrompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            htmlContinuation: { 
+              type: Type.STRING,
+              description: "The full, seamless HTML/markup content to append immediately to the end of the existing content."
+            },
+            newMcqs: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  question: { type: Type.STRING },
+                  options: { 
+                    type: Type.ARRAY, 
+                    items: { type: Type.STRING } 
+                  },
+                  correctAnswerIndex: { type: Type.INTEGER },
+                  explanation: { type: Type.STRING }
+                },
+                required: ["id", "question", "options", "correctAnswerIndex", "explanation"]
+              }
+            }
+          },
+          required: ["htmlContinuation", "newMcqs"]
+        }
+      }
+    });
+    jsonText = response.text || "";
+  }
+
+  const cleanedCode = jsonText.trim().replace(/^```json\s*|```$/g, "").trim();
+  const parsed = JSON.parse(cleanedCode);
+  return parsed as { htmlContinuation: string; newMcqs: MCQ[] };
+}
+
+
 
 
 
