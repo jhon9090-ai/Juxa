@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import katex from 'katex';
-import { InlineMath, BlockMath } from 'react-katex';
 import { Sparkles, RefreshCw, AlertTriangle, Check } from 'lucide-react';
 import { fixLaTeXEquation } from '../services/geminiService';
 
