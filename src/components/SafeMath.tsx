@@ -15,11 +15,12 @@ export const SafeMath: React.FC<SafeMathProps> = ({ math, displayMode = false, o
   const [localError, setLocalError] = useState<string | null>(null);
 
   // Validate if math parses successfully in KaTeX
+  let html = "";
   let hasError = false;
   let kaTexErrorMessage = "";
   try {
     // Determine displayMode setup
-    katex.renderToString(math, { 
+    html = katex.renderToString(math, { 
       throwOnError: true,
       displayMode: displayMode 
     });
@@ -56,8 +57,7 @@ export const SafeMath: React.FC<SafeMathProps> = ({ math, displayMode = false, o
   };
 
   if (!hasError) {
-    // If no render errors, render standard react-katex components
-    return displayMode ? <BlockMath math={math} /> : <InlineMath math={math} />;
+    return <span dangerouslySetInnerHTML={{ __html: html }} />;
   }
 
   // If there's an error, we display the error as red text.
