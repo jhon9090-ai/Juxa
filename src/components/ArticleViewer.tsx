@@ -7,6 +7,7 @@ import { MCQComponent } from './MCQComponent';
 import { EnhancedNote, generateExamQuestions, MCQ, generateBespokeExamSections, BespokeSection, fixAllLaTeXInDocument, healDocumentFormulaWithAI, fixLaTeXEquation, continueNote } from '../services/geminiService';
 import { saveNotebook, EnhancedNotebook } from '../services/db';
 import { SYLLABUS } from '../data/syllabus';
+import { NoteViewerErrorBoundary } from './NoteViewerErrorBoundary';
 
 function getHeaderSectionsFromHtml(html: string, fallbackTitle: string): BespokeSection[] {
   // Extract content of <h2 ...>Something</h2>
@@ -1832,9 +1833,11 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
                 </div>
 
                 {/* Notebook Body Content - Live Parser */}
-                <div className={`juxa-note-container prose prose-slate dark:prose-invert max-w-none ${isFolded ? 'is-folded' : ''}`}>
-                  {parse(previewProcessedHtml, previewFinalOptions)}
-                </div>
+                <NoteViewerErrorBoundary rawHtml={previewProcessedHtml} onHeal={handleFixAllLaTeXLoneInEditor}>
+                  <div className={`juxa-note-container prose prose-slate dark:prose-invert max-w-none ${isFolded ? 'is-folded' : ''}`}>
+                    {parse(previewProcessedHtml, previewFinalOptions)}
+                  </div>
+                </NoteViewerErrorBoundary>
               </div>
 
             </div>
@@ -2023,9 +2026,11 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
         )}
 
         {/* Notebook Body Content */}
-        <div className={`juxa-note-container prose prose-slate dark:prose-invert max-w-none ${isFolded ? 'is-folded' : ''}`}>
-          {parse(processedHtml, finalOptions)}
-        </div>
+        <NoteViewerErrorBoundary rawHtml={processedHtml} onHeal={handleFixAllLaTeX}>
+          <div className={`juxa-note-container prose prose-slate dark:prose-invert max-w-none ${isFolded ? 'is-folded' : ''}`}>
+            {parse(processedHtml, finalOptions)}
+          </div>
+        </NoteViewerErrorBoundary>
 
         {/* 100 MCQ Mastery Challenge grand banner at bottom */}
         <div className="mt-16 p-8 bg-slate-900 border border-slate-800 rounded-3xl relative overflow-hidden text-center max-w-4xl mx-auto no-print shadow-xl">
