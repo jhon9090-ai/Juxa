@@ -8,6 +8,12 @@ import { EnhancedNote, generateExamQuestions, MCQ, generateBespokeExamSections, 
 import { saveNotebook, EnhancedNotebook } from '../services/db';
 import { SYLLABUS } from '../data/syllabus';
 import { NoteViewerErrorBoundary } from './NoteViewerErrorBoundary';
+import { 
+  Printer, FileDown, RefreshCw, GraduationCap, Award, 
+  ChevronRight, ArrowLeft, Brain, Check, X, CheckSquare, 
+  Play, BookOpen, AlertCircle, HelpCircle, Trophy, BarChart2,
+  ChevronLeft, FastForward, Clock, Sparkles
+} from 'lucide-react';
 
 function getHeaderSectionsFromHtml(html: string, fallbackTitle: string): BespokeSection[] {
   // Extract content of <h2 ...>Something</h2>
@@ -95,13 +101,6 @@ function isNoteIncomplete(htmlContent: string): boolean {
   
   return matchesAbruptEnd || matchesUnclosedTag || hasMultipleOpenDivs || hasMultipleOpenParagraphs;
 }
-
-import { 
-  Printer, FileDown, RefreshCw, GraduationCap, Award, 
-  ChevronRight, ArrowLeft, Brain, Check, X, CheckSquare, 
-  Play, BookOpen, AlertCircle, HelpCircle, Trophy, BarChart2,
-  ChevronLeft, FastForward, Clock, Sparkles
-} from 'lucide-react';
 
 interface ArticleViewerProps {
   note: EnhancedNotebook;
