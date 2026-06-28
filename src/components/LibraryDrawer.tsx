@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Trash2, BookOpen, Clock, AlertCircle, HelpCircle, Pin } from 'lucide-react';
+import { X, Search, Trash2, BookOpen, Clock, AlertCircle, HelpCircle, Pin, FileDown, Printer, Loader2 } from 'lucide-react';
 import { getAllNotebooks, deleteNotebook, saveNotebook, EnhancedNotebook } from '../services/db';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { NoteContentExportRenderer } from './ArticleViewer';
 
 interface LibraryDrawerProps {
   isOpen: boolean;
@@ -21,6 +22,8 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exportingNote, setExportingNote] = useState<EnhancedNotebook | null>(null);
+  const [isPdfExporting, setIsPdfExporting] = useState<string | null>(null);
 
   const fetchNotebooks = async () => {
     setLoading(true);
@@ -69,6 +72,63 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
     } catch (err: any) {
       alert(err?.message || "Failed to toggle pin state");
     }
+  };
+
+  const handleSidebarDownloadPdf = async (nb: EnhancedNotebook, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isPdfExporting) return;
+    setIsPdfExporting(nb.id);
+    setExportingNote(nb);
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      await new Promise<void>((resolve, reject) => {
+        if ((window as any).html2pdf) {
+          resolve();
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Failed to load html2pdf.js library'));
+        document.body.appendChild(script);
+      });
+
+      const html2pdf = (window as any).html2pdf;
+      const element = document.getElementById('juxa-sidebar-printable-article');
+      if (!element) return;
+
+      const opt = {
+        margin: [0.5, 0.5, 0.5, 0.5],
+        filename: `${nb.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'notebook'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0, scrollX: 0 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+
+      await html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error('Sidebar PDF export failed:', err);
+      alert('We were unable to generate the PDF automatically. Try using the Print button next to it instead.');
+    } finally {
+      setIsPdfExporting(null);
+      setExportingNote(null);
+    }
+  };
+
+  const handleSidebarPrint = async (nb: EnhancedNotebook, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExportingNote(nb);
+    document.body.classList.add('is-sidebar-printing');
+
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        document.body.classList.remove('is-sidebar-printing');
+        setExportingNote(null);
+      }, 500);
+    }, 200);
   };
 
   const getWordCount = (html: string) => {
@@ -209,7 +269,30 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
                           </div>
                         </div>
 
-                        <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => handleSidebarDownloadPdf(notebook, e)}
+                            disabled={isPdfExporting === notebook.id}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer disabled:opacity-100"
+                            title="Download as PDF"
+                          >
+                            {isPdfExporting === notebook.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                            ) : (
+                              <FileDown className="w-4 h-4" />
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleSidebarPrint(notebook, e)}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
+                            title="Print note layout"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+
                           <button
                             type="button"
                             onClick={(e) => handleTogglePin(notebook, e)}
@@ -249,6 +332,20 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
               </span>
             </div>
           </motion.div>
+
+          {/* Hidden offscreen container for PDF generation and Sidebar Print */}
+          {exportingNote && (
+            <div 
+              id="juxa-sidebar-printable-article" 
+              className="fixed left-[-9999px] top-0 w-[800px] bg-white text-slate-900 p-12 z-[-1] print:left-0 print:top-0 print:w-full print:z-[99999]"
+            >
+              <div className="mb-8 border-b-2 border-slate-900 pb-4">
+                <span className="text-xs uppercase tracking-widest text-slate-400 font-bold block mb-1">Scholastic Juxa Notebook</span>
+                <h1 className="text-4xl font-black text-slate-900">{exportingNote.title}</h1>
+              </div>
+              <NoteContentExportRenderer note={exportingNote} />
+            </div>
+          )}
         </>
       )}
     </AnimatePresence>
