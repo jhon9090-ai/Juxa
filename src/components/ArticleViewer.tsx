@@ -85,7 +85,7 @@ function getHeaderSectionsFromHtml(html: string, fallbackTitle: string): Bespoke
   return sections;
 }
 
-function isNoteIncomplete(htmlContent: string): boolean {
+export function isNoteIncomplete(htmlContent: string): boolean {
   if (!htmlContent) return false;
   const trimmed = htmlContent.trim();
   
@@ -100,6 +100,24 @@ function isNoteIncomplete(htmlContent: string): boolean {
   const hasMultipleOpenParagraphs = (trimmed.match(/<p/gi) || []).length > (trimmed.match(/<\/p/gi) || []).length;
   
   return matchesAbruptEnd || matchesUnclosedTag || hasMultipleOpenDivs || hasMultipleOpenParagraphs;
+}
+
+export function cleanLaTeX(math: string): string {
+  if (!math) return "";
+  let cleaned = math.trim();
+  if (cleaned.startsWith('$$') && cleaned.endsWith('$$')) {
+    cleaned = cleaned.substring(2, cleaned.length - 2).trim();
+  }
+  if (cleaned.startsWith('$') && cleaned.endsWith('$')) {
+    cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+  }
+  if (cleaned.startsWith('\\[') && cleaned.endsWith('\\]')) {
+    cleaned = cleaned.substring(2, cleaned.length - 2).trim();
+  }
+  if (cleaned.startsWith('\\(') && cleaned.endsWith('\\)')) {
+    cleaned = cleaned.substring(2, cleaned.length - 2).trim();
+  }
+  return cleaned;
 }
 
 interface ArticleViewerProps {
@@ -1079,24 +1097,6 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     setActiveSection(null);
   };
 
-  // Helper to safely strip raw LaTeX delimiters and brackets before sending to KaTeX
-  const cleanLaTeX = (math: string): string => {
-    let cleaned = math.trim();
-    if (cleaned.startsWith('$$') && cleaned.endsWith('$$')) {
-      cleaned = cleaned.substring(2, cleaned.length - 2).trim();
-    }
-    if (cleaned.startsWith('$') && cleaned.endsWith('$')) {
-      cleaned = cleaned.substring(1, cleaned.length - 1).trim();
-    }
-    if (cleaned.startsWith('\\[') && cleaned.endsWith('\\]')) {
-      cleaned = cleaned.substring(2, cleaned.length - 2).trim();
-    }
-    if (cleaned.startsWith('\\(') && cleaned.endsWith('\\)')) {
-      cleaned = cleaned.substring(2, cleaned.length - 2).trim();
-    }
-    return cleaned;
-  };
-
   // Math-Logic / LaTeX parsing inside the questions and answers text
   const parseLaTeXText = (text: string) => {
     if (!text) return "";
@@ -2053,8 +2053,56 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   );
 };
 
-function getTextFromNode(node: any): string {
+export function getTextFromNode(node: any): string {
   if (node.type === 'text') return node.data;
   if (!node.children) return '';
   return node.children.map(getTextFromNode).join('');
 }
+
+export const NoteContentExportRenderer: React.FC<{ note: EnhancedNotebook }> = ({ note }) => {
+  let processedHtml = (note.htmlContent || "").replace(/\[\[MCQ:([\w-]+)\]\]/g, '<mcq-placeholder data-id="$1"></mcq-placeholder>');
+  processedHtml = processedHtml.replace(/(?<!\\)\$\$([\s\S]+?)(?<!\\)\$\$/g, '<div class="d101">$1</div>');
+  processedHtml = processedHtml.replace(/(?<!\\)\$([^\$]+?)(?<!\\)\$/g, '<span class="katex">$1</span>');
+
+  const finalOptions: HTMLReactParserOptions = {
+    replace: (domNode) => {
+      if (domNode instanceof Element) {
+        if (domNode.name === 'mcq-placeholder') {
+          const id = domNode.attribs['data-id'];
+          const mcq = note.mcqs?.find(m => m.id === id);
+          if (mcq) {
+            return <MCQComponent mcq={mcq} />;
+          }
+        }
+        if (domNode.attribs && domNode.attribs.class && domNode.attribs.class.includes('d101')) {
+          const textContent = getTextFromNode(domNode);
+          if (textContent.trim()) {
+            const cleanMath = cleanLaTeX(textContent);
+            return (
+              <div className="d101 flex justify-center py-4 text-center w-full">
+                <SafeMath math={cleanMath} displayMode={true} />
+              </div>
+            );
+          }
+        }
+        if (domNode.attribs && domNode.attribs.class && domNode.attribs.class.includes('katex')) {
+          const textContent = getTextFromNode(domNode);
+          if (textContent.trim()) {
+            const cleanMath = cleanLaTeX(textContent);
+            return (
+              <span className="katex mx-1">
+                <SafeMath math={cleanMath} displayMode={false} />
+              </span>
+            );
+          }
+        }
+      }
+    }
+  };
+
+  return (
+    <div className="juxa-note-container prose prose-slate max-w-none">
+      {parse(processedHtml, finalOptions)}
+    </div>
+  );
+};
