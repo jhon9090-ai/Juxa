@@ -1879,10 +1879,11 @@ svg {
     body * {
         visibility: hidden !important;
     }
-    #juxa-printable-article, #juxa-printable-article * {
+    #juxa-printable-article, #juxa-printable-article *,
+    #juxa-sidebar-printable-article, #juxa-sidebar-printable-article * {
         visibility: visible !important;
     }
-    #juxa-printable-article {
+    #juxa-printable-article, #juxa-sidebar-printable-article {
         position: absolute !important;
         left: 0 !important;
         top: 0 !important;
@@ -1891,6 +1892,10 @@ svg {
         margin: 0 !important;
         background: white !important;
         color: #0f172a !important;
+    }
+    body.is-sidebar-printing #juxa-printable-article {
+        display: none !important;
+        visibility: hidden !important;
     }
     .no-print {
         display: none !important;
