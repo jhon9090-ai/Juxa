@@ -2,7 +2,7 @@ import React, { useState, useRef, DragEvent } from "react";
 import { 
   FileUp, FileText, Sparkles, AlertCircle, RefreshCw, 
   ChevronRight, BookOpen, Clock, HelpCircle, CheckCircle, 
-  Trash2, RotateCw, ArrowRight, Clipboard 
+  Trash2, RotateCw, ArrowRight, Clipboard, Sliders
 } from "lucide-react";
 import { EnhancedNotebook } from "../services/db";
 
@@ -12,11 +12,42 @@ interface UnitWorkspaceProps {
   unitName: string;
   unitGrade?: string;
   existingNotebook: EnhancedNotebook | null;
-  onGenerate: (notes: string) => void;
+  onGenerate: (notes: string, depth: number) => void;
   onOpenNotebook: (notebook: EnhancedNotebook) => void;
   onDeleteNotebook: (id: string) => void;
   isLoading: boolean;
 }
+
+const getDepthDescription = (val: number) => {
+  if (val === 0) return {
+    label: "Extremely Concise Summary",
+    desc: "Provides only the absolute barebones concepts, core definitions, and immediate formulas. Fast to read, zero overhead."
+  };
+  if (val <= 25) return {
+    label: "Concise & To-the-Point",
+    desc: "A clean, high-yield overview highlighting major takeaways. Avoids lengthy explanations and chronological background."
+  };
+  if (val < 50) return {
+    label: "Efficient Overview",
+    desc: "Focused and streamlined, keeping key terms and equations but reducing secondary descriptions."
+  };
+  if (val === 50) return {
+    label: "Balanced (Precise & Complete)",
+    desc: "The optimal middle point. Contains enough depth to ensure zero information is removed, remaining thoroughly precise without unnecessary filler."
+  };
+  if (val < 75) return {
+    label: "Detailed & Elaborated",
+    desc: "Comprehensive coverage with expanded sub-principles, step-by-step math breakdowns, and clear descriptions."
+  };
+  if (val < 100) return {
+    label: "Very In-depth Textbook Chapter",
+    desc: "A rich, university-grade deep dive with comprehensive background, multiple rich paragraphs, and deep theoretical context."
+  };
+  return {
+    label: "Ultimate Exhaustive Deep Dive",
+    desc: "Maximum academic detail. Fully-elaborated textbook chapter with step-by-step derivations, historical background, and extensive theoretical context."
+  };
+};
 
 export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
   subjectName,
@@ -36,6 +67,7 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
   const [extractionError, setExtractionError] = useState<string | null>(null);
   const [showPastedInput, setShowPastedInput] = useState(false);
   const [forceUploader, setForceUploader] = useState(false);
+  const [depth, setDepth] = useState(50);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -161,7 +193,7 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
     e.preventDefault();
     const finalContent = extractedFile ? extractedFile.content : pastedText;
     if (!finalContent.trim()) return;
-    onGenerate(finalContent);
+    onGenerate(finalContent, depth);
     setForceUploader(false);
   };
 
@@ -307,6 +339,48 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-6">
+        {/* Dynamic Depth Slider */}
+        <div className="bg-indigo-50/40 border border-indigo-100/80 rounded-3xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-indigo-600 animate-pulse" />
+              <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-950 font-mono">
+                AI Generation Depth Control
+              </span>
+            </div>
+            <span className="text-xs font-black text-indigo-700 bg-indigo-100/60 px-2.5 py-1 rounded-full font-mono">
+              {depth}% Depth
+            </span>
+          </div>
+          
+          <div className="space-y-3">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={depth}
+              onChange={(e) => setDepth(Number(e.target.value))}
+              className="w-full h-2 bg-indigo-100/60 rounded-lg appearance-none cursor-pointer accent-indigo-600 focus:outline-none"
+            />
+            
+            <div className="flex justify-between text-[10px] text-slate-400 font-extrabold font-mono uppercase tracking-wide px-1">
+              <span>Very Concise</span>
+              <span className="text-indigo-600">Balanced (Preserves Info)</span>
+              <span>Very In-Depth</span>
+            </div>
+
+            <div className="bg-white border border-indigo-50/60 rounded-2xl p-3.5 shadow-sm mt-3">
+              <div className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse"></div>
+                {getDepthDescription(depth).label}
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed mt-1">
+                {getDepthDescription(depth).desc}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Resource Drag-And-Drop Box */}
         {!showPastedInput ? (
           <div
@@ -382,7 +456,7 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onGenerate("AUTOMATIC_SYLLABUS_GENERATION_REQUEST");
+                      onGenerate("AUTOMATIC_SYLLABUS_GENERATION_REQUEST", depth);
                     }}
                     className="inline-flex items-center gap-1.5 bg-indigo-600 border border-indigo-700 hover:bg-indigo-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-sm hover:shadow active:scale-[0.98] transition-all cursor-pointer"
                   >
@@ -410,7 +484,7 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
                 <span className="text-xs text-slate-500 font-medium">Have no syllabus guide to paste? Let Juxa analyze the syllabus and write the entire chapter from scratch:</span>
                 <button
                   type="button"
-                  onClick={() => onGenerate("AUTOMATIC_SYLLABUS_GENERATION_REQUEST")}
+                  onClick={() => onGenerate("AUTOMATIC_SYLLABUS_GENERATION_REQUEST", depth)}
                   className="flex items-center justify-center gap-1.5 text-xs text-indigo-700 bg-white hover:bg-slate-50 font-extrabold px-3.5 py-2 rounded-xl transition-all shadow-sm border border-indigo-200 cursor-pointer self-start sm:self-auto"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
