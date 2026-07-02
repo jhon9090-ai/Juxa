@@ -113,7 +113,7 @@ export default function App() {
   }, [isLoading]);
 
   // Generate textbook chapter
-  const handleEnhance = async (rawContent: string) => {
+  const handleEnhance = async (rawContent: string, depth: number = 50) => {
     if (!selectedUnitId) return;
     setIsLoading(true);
     setError(null);
@@ -129,7 +129,7 @@ export default function App() {
       } : undefined;
 
       // Request detailed long textbook-grade chapter from enhanced Gemini LLM
-      const result = await enhanceNote(rawContent, unitContext);
+      const result = await enhanceNote(rawContent, unitContext, depth);
       
       // Auto-save with unit link
       const offlineNotebook = await saveNotebook({
