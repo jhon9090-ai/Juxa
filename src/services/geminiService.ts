@@ -33,9 +33,36 @@ function cleanJsonResponse(text: string): string {
   return cleaned.trim();
 }
 
+export function getDepthInstructions(depth: number): string {
+  if (depth <= 25) {
+    return `CRITICAL LENGTH, DEPTH, & CONCISENESS MANDATE:
+- Focus on being VERY CONCISE AND TO THE POINT.
+- Create a crisp, punchy, high-yield summary lesson that delivers key definitions and core ideas immediately.
+- Avoid lengthy explanations, excessive background history, or deep theoretical tangents.
+- Maintain high information density: use brief paragraphs, bulleted key takeaways, and direct, clear explanations.
+- Ensure the student can review the entire unit's concepts quickly and effortlessly. Length should be around 500 to 1000 words.`;
+  } else if (depth >= 75) {
+    return `CRITICAL LENGTH, DEPTH, & EXHAUSTIVE DETAIL MANDATE:
+- Focus on being EXTREMELY IN-DEPTH AND DETAILED.
+- Approach lesson authoring with the depth of a premium university research syllabus.
+- Prioritize profound technical explanations: detail step-by-step mathematical derivations, state limitations or bounds of laws, explore chronological discovery paradigms, and cover theoretical context exhaustively.
+- The note generated MUST NOT be a short overview or general summary. It must be written as a deep-dive, fully-elaborated textbook chapter (around 2000 to 3500 words or more).
+- For every core concept, write multiple rich paragraphs explaining the theory, history, scientific/mathematical mechanisms, real-world examples, and secondary sub-principles.
+- Integrate expert explanatory text that goes beyond the raw notes, flesh out explanations of equations step-by-step, and provide a master-level analytical breakdown. The user explicitly asked for "detailed, long notes with all features included" with ultimate academic precision.`;
+  } else {
+    return `CRITICAL LENGTH, DEPTH, & PRECISION MANDATE (BALANCED MIDDLE GROUND):
+- Focus on being BALANCED: containing enough info that it is NOT removing any information, while being highly precise, clear, and direct without unnecessary filler.
+- DO NOT remove, omit, or overlook any key concepts, syllabus points, or definitions from the original material.
+- Provide comprehensive, complete, and mathematically/scientifically precise coverage of all concepts.
+- Explain each concept with enough rich detail to be thoroughly educational and precise, but avoid excessive or overly repetitive paragraphs. Keep the explanation efficient, precise, and highly structured (around 1200 to 1800 words).
+- Strike the perfect balance: deep enough to maintain all technical depth and exactitude, but concise enough to remain focused and accessible.`;
+  }
+}
+
 export async function enhanceNote(
   rawNotes: string, 
-  unitContext?: { subjectName: string; themeName: string; unitName: string }
+  unitContext?: { subjectName: string; themeName: string; unitName: string },
+  depth: number = 50
 ): Promise<EnhancedNote> {
   const source = localStorage.getItem("juxa_api_source") || "builtin";
   
@@ -46,15 +73,13 @@ UNIT: ${unitContext.unitName} (Target Curriculum Context)`
     : "General Subject Material";
 
   const systemPrompt = `You are an expert academic curriculum creator, outstanding textbook author, and elite UI designer.
-Your absolute primary directive is to transform raw study notes and concepts into a comprehensive, highly-detailed, and extensive textbook chapter/lesson for the unit:
+Your absolute primary directive is to transform raw study notes and concepts into a comprehensive textbook chapter/lesson for the unit:
 [ ${contextHeader} ]
 
-CRITICAL LENGTH, DEPTH, & COGNITIVE RIGOUR MANDATE (SIMULATING EXPANDED REASONING):
-- Approach lesson authoring with the depth of a premium university research syllabus.
-- Prioritize profound technical explanations: detail step-by-step mathematical derivations, state limitations or bounds of laws, explore chronological discovery paradigms, and cover theoretical context exhaustively.
-- The note generated MUST NOT be a short overview or general summary. It must be written as a deep-dive, fully-elaborated textbook chapter (around 1500 to 2500 words or more).
-- For every core concept, write multiple rich paragraphs explaining the theory, history, scientific/mathematical mechanisms, real-world examples, and secondary sub-principles.
-- Integrate expert explanatory text that goes beyond the raw notes, flesh out explanations of equations step-by-step, and provide a master-level analytical breakdown. The user explicitly asked for "detailed, long notes with all features included" with ultimate academic precision.
+TARGET GENERATION DEPTH CALIBRATION:
+- Selected Depth Level: ${depth}% (on a scale where 0% is extremely concise summary, 50% is balanced and precise containing all information, and 100% is extremely detailed and exhaustive).
+
+${getDepthInstructions(depth)}
 
 Your visual creations (DEMONSTRATIONS) are a key pillar of this academic chapter. You must design and construct stunning, highly-detailed, interactive, and premium inline SVG demonstrations/diagrams.
 
@@ -907,8 +932,4 @@ Ensure the output is 100% valid stringified JSON. Do not wrap in markdown or cod
   const parsed = JSON.parse(cleanedCode);
   return parsed as { htmlContinuation: string; newMcqs: MCQ[] };
 }
-
-
-
-
 
