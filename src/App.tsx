@@ -163,7 +163,6 @@ export default function App() {
       setEnhancedNote(offlineNotebook);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred while generating this independent topic.");
-      setIsOtherGeneratorOpen(false);
     } finally {
       setIsLoading(false);
     }
