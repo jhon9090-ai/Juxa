@@ -5,6 +5,7 @@ import {
   Trash2, RotateCw, ArrowRight, Clipboard, Sliders
 } from "lucide-react";
 import { EnhancedNotebook } from "../services/db";
+import { getDepthWordBudget } from "../services/geminiService";
 
 interface UnitWorkspaceProps {
   subjectName: string;
@@ -68,6 +69,7 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
   const [showPastedInput, setShowPastedInput] = useState(false);
   const [forceUploader, setForceUploader] = useState(false);
   const [depth, setDepth] = useState(50);
+  const depthBudget = getDepthWordBudget(depth);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -377,6 +379,15 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
               <p className="text-xs text-slate-500 leading-relaxed mt-1">
                 {getDepthDescription(depth).desc}
               </p>
+              <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/70 px-3.5 py-3">
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 font-mono">Calculated AI output restriction</div>
+                <div className="mt-1 text-sm font-black text-slate-800">
+                  Target: {depthBudget.target.toLocaleString()} words
+                </div>
+                <div className="text-xs text-slate-500 mt-0.5">
+                  Allowed range: {depthBudget.min.toLocaleString()}–{depthBudget.max.toLocaleString()} words
+                </div>
+              </div>
             </div>
           </div>
         </div>
