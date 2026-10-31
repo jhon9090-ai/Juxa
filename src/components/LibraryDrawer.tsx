@@ -142,7 +142,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
     const titleMatch = notebook.title?.toLowerCase().includes(query);
     const contentMatch = notebook.htmlContent?.toLowerCase().includes(query);
     return titleMatch || contentMatch;
-  });
+  }).sort((a, b) => Number(a.folder === "others") - Number(b.folder === "others"));
 
   return (
     <AnimatePresence>
@@ -217,8 +217,11 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
                   </p>
                 </div>
               ) : (
-                filteredNotebooks.map((notebook) => {
+                filteredNotebooks.map((notebook, index) => {
                   const isActive = notebook.id === currentNoteId;
+                  const folderName = notebook.folder === "others" ? "Others" : "Course Notes";
+                  const previousFolderName = index > 0 && filteredNotebooks[index - 1].folder === "others" ? "Others" : "Course Notes";
+                  const showFolderHeading = index === 0 || folderName !== previousFolderName;
                   const wordCount = getWordCount(notebook.htmlContent);
                   const parsedDate = new Date(notebook.createdAt).toLocaleDateString(undefined, {
                     month: 'short',
@@ -228,6 +231,8 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
                   });
 
                   return (
+                    <>
+                    {showFolderHeading && <div className="px-1 pt-3 pb-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 font-mono">{folderName}</div>}
                     <div
                       key={notebook.id}
                       onClick={() => onSelectNotebook(notebook)}
@@ -318,6 +323,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
                         </div>
                       </div>
                     </div>
+                    </>
                   );
                 })
               )}
