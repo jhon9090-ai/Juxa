@@ -33,30 +33,39 @@ function cleanJsonResponse(text: string): string {
   return cleaned.trim();
 }
 
+export function getDepthWordBudget(depth: number): { target: number; min: number; max: number } {
+  const normalizedDepth = Math.max(0, Math.min(100, Number.isFinite(depth) ? depth : 50));
+  const target = Math.round(500 + normalizedDepth * 30);
+  return {
+    target,
+    min: Math.round(target * 0.9),
+    max: Math.round(target * 1.1)
+  };
+}
+
 export function getDepthInstructions(depth: number): string {
-  if (depth <= 25) {
-    return `CRITICAL LENGTH, DEPTH, & CONCISENESS MANDATE:
-- Focus on being VERY CONCISE AND TO THE POINT.
-- Create a crisp, punchy, high-yield summary lesson that delivers key definitions and core ideas immediately.
-- Avoid lengthy explanations, excessive background history, or deep theoretical tangents.
-- Maintain high information density: use brief paragraphs, bulleted key takeaways, and direct, clear explanations.
-- Ensure the student can review the entire unit's concepts quickly and effortlessly. Length should be around 500 to 1000 words.`;
-  } else if (depth >= 75) {
-    return `CRITICAL LENGTH, DEPTH, & EXHAUSTIVE DETAIL MANDATE:
-- Focus on being EXTREMELY IN-DEPTH AND DETAILED.
-- Approach lesson authoring with the depth of a premium university research syllabus.
-- Prioritize profound technical explanations: detail step-by-step mathematical derivations, state limitations or bounds of laws, explore chronological discovery paradigms, and cover theoretical context exhaustively.
-- The note generated MUST NOT be a short overview or general summary. It must be written as a deep-dive, fully-elaborated textbook chapter (around 2000 to 3500 words or more).
-- For every core concept, write multiple rich paragraphs explaining the theory, history, scientific/mathematical mechanisms, real-world examples, and secondary sub-principles.
-- Integrate expert explanatory text that goes beyond the raw notes, flesh out explanations of equations step-by-step, and provide a master-level analytical breakdown. The user explicitly asked for "detailed, long notes with all features included" with ultimate academic precision.`;
-  } else {
-    return `CRITICAL LENGTH, DEPTH, & PRECISION MANDATE (BALANCED MIDDLE GROUND):
-- Focus on being BALANCED: containing enough info that it is NOT removing any information, while being highly precise, clear, and direct without unnecessary filler.
-- DO NOT remove, omit, or overlook any key concepts, syllabus points, or definitions from the original material.
-- Provide comprehensive, complete, and mathematically/scientifically precise coverage of all concepts.
-- Explain each concept with enough rich detail to be thoroughly educational and precise, but avoid excessive or overly repetitive paragraphs. Keep the explanation efficient, precise, and highly structured (around 1200 to 1800 words).
-- Strike the perfect balance: deep enough to maintain all technical depth and exactitude, but concise enough to remain focused and accessible.`;
-  }
+  const budget = getDepthWordBudget(depth);
+  const depthLabel = depth <= 25
+    ? "concise, high-yield coverage"
+    : depth < 50
+      ? "focused explanations with useful supporting detail"
+      : depth <= 60
+        ? "balanced, complete textbook-style coverage"
+        : depth < 80
+          ? "detailed explanations and worked reasoning"
+          : "exhaustive, university-level theoretical depth";
+
+  return `MANDATORY GENERATION BUDGET — THIS IS A HARD OUTPUT CONSTRAINT:
+- Selected depth: ${Math.max(0, Math.min(100, depth))}%.
+- Required target length: ${budget.target.toLocaleString("en-US")} words.
+- Permitted final length: ${budget.min.toLocaleString("en-US")}–${budget.max.toLocaleString("en-US")} words (inclusive).
+- The target and permitted range are calculated from the selected slider value. Do not treat the slider as a vague style preference.
+- Plan the chapter to fit this word budget before drafting. Allocate space across the actual concepts proportionally; do not spend the budget repeating introductions or padding.
+- Before returning the JSON, estimate the word count of htmlContent and revise it so it falls inside the permitted range. Do not count HTML tags as words.
+- Do not stop early below the minimum and do not exceed the maximum. Preserve all key concepts from the supplied material while adjusting the detail and explanation depth to fit.
+- Desired explanatory style: ${depthLabel}.
+- At lower levels, compress examples and theoretical background; at higher levels, expand derivations, mechanisms, assumptions, limitations, comparisons, and worked examples.
+- This numeric word-count restriction applies to the generated lesson body (htmlContent), not the JSON syntax, title, or MCQ metadata.`;
 }
 
 export async function enhanceNote(
@@ -77,8 +86,6 @@ Your absolute primary directive is to transform raw study notes and concepts int
 [ ${contextHeader} ]
 
 TARGET GENERATION DEPTH CALIBRATION:
-- Selected Depth Level: ${depth}% (on a scale where 0% is extremely concise summary, 50% is balanced and precise containing all information, and 100% is extremely detailed and exhaustive).
-
 ${getDepthInstructions(depth)}
 
 Your visual creations (DEMONSTRATIONS) are a key pillar of this academic chapter. You must design and construct stunning, highly-detailed, interactive, and premium inline SVG demonstrations/diagrams.
@@ -315,19 +322,60 @@ Return your response formatted cleanly with beautiful markdown. If writing equat
   }
 }
 
+function extractExamSectionContent(noteContent: string, sectionNum: number, sectionTitle: string): string {
+  const headingRegex = /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi;
+  const headings: Array<{ start: number; end: number; level: number; title: string }> = [];
+  let match: RegExpExecArray | null;
+  while ((match = headingRegex.exec(noteContent)) !== null) {
+    headings.push({
+      start: match.index,
+      end: headingRegex.lastIndex,
+      level: Number(match[1]),
+      title: match[2].replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim()
+    });
+  }
+  const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const target = normalize(sectionTitle);
+  const matchedIndex = headings.findIndex(h => {
+    const heading = normalize(h.title);
+    return Boolean(heading && target && (heading === target || heading.includes(target) || target.includes(heading)));
+  });
+  if (matchedIndex >= 0) {
+    const heading = headings[matchedIndex];
+    const nextHeading = headings.slice(matchedIndex + 1).find(h => h.level <= heading.level);
+    return noteContent.slice(heading.start, nextHeading?.start ?? noteContent.length);
+  }
+  if (headings.length >= 10) {
+    const startIndex = Math.min(headings.length - 1, Math.floor(((sectionNum - 1) / 10) * headings.length));
+    const endIndex = Math.min(headings.length, Math.max(startIndex + 1, Math.floor((sectionNum / 10) * headings.length)));
+    return noteContent.slice(headings[startIndex].start, endIndex < headings.length ? headings[endIndex].start : noteContent.length);
+  }
+  const chunkSize = Math.ceil(noteContent.length / 10);
+  const start = Math.max(0, (sectionNum - 1) * chunkSize);
+  return noteContent.slice(start, Math.min(noteContent.length, start + chunkSize)) || noteContent;
+}
+
 export async function generateExamQuestions(
   noteTitle: string,
   noteContent: string,
   sectionNum: number,
   sectionTitle: string
 ): Promise<MCQ[]> {
+  const sectionContent = extractExamSectionContent(noteContent, sectionNum, sectionTitle);
   const systemPrompt = `You are an elite academic examiner, high-school/university gold-medalist mentor, and highly selective testing board director.
-Your core directive is to author exactly 10 EXTREMELY DIFFICULT multiple choice questions (MCQs) for Section ${sectionNum} ("${sectionTitle}") of a comprehensive 100-question rigorous exam.
+Your core directive is to author exactly 10 EXTREMELY DIFFICULT multiple choice questions (MCQs) ONLY for Section ${sectionNum} ("${sectionTitle}") of a comprehensive 100-question rigorous exam.
 The exam is based on the following textbook lesson: "${noteTitle}".
 
-REVIEWS OF LESSON CONTENT OR SYLLABUS:
+STRICT TOPIC-LOCK:
+- This request is for Section ${sectionNum} titled "${sectionTitle}". Stay on this exact topic for all 10 questions.
+- Do not drift into another chapter topic, repeat another section's central concept, or turn this into a general test on the whole lesson.
+- Each question must assess a distinct concept, relationship, derivation, or application belonging to this section.
+- Use other topics only as brief prerequisites when absolutely necessary; the assessed answer must still depend on the selected section.
+- If the selected section is narrow, create varied applications of that same topic rather than switching topics.
+
+SECTION-SPECIFIC SOURCE MATERIAL (this is the question scope):
 --------------------------------------
-${noteContent.substring(0, 15000)}
+${sectionContent.substring(0, 15000)}
 --------------------------------------
 
 HIGH-COGNITIVE CRITICAL GUIDELINES:

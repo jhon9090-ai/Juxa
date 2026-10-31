@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { HTMLReactParserOptions, Element } from 'html-react-parser';
 import parse from 'html-react-parser';
 import katex from 'katex';
@@ -137,6 +137,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   const [loadingSection, setLoadingSection] = useState<number | null>(null);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const examRequestIdRef = useRef(0);
 
   // Bespoke Sections state
   const [examSections, setExamSections] = useState<BespokeSection[]>([]);
@@ -158,6 +159,8 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
 
   // Load persistent progress on note change
   useEffect(() => {
+    examRequestIdRef.current += 1;
+    setLoadingSection(null);
     const storageKey = `juxa_exam_v2_${note.title}`;
     const savedData = localStorage.getItem(storageKey);
     let loadedSections: BespokeSection[] = [];
@@ -948,16 +951,27 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
 
   // Start Section Quiz handling
   const handleStartSection = async (sectionNum: number, sectionTitle: string) => {
+    if (loadingSection !== null) return;
     setErrorMessage(null);
+
     if (sectionQuestions[sectionNum] && sectionQuestions[sectionNum].length > 0) {
       setActiveSection(sectionNum);
       setCurrentQuestionIdx(0);
       return;
     }
 
+    const requestId = ++examRequestIdRef.current;
+    const requestedNoteTitle = note.title;
+    const requestedNoteContent = note.htmlContent;
     setLoadingSection(sectionNum);
     try {
-      const generated = await generateExamQuestions(note.title, note.htmlContent, sectionNum, sectionTitle);
+      const generated = await generateExamQuestions(
+        requestedNoteTitle,
+        requestedNoteContent,
+        sectionNum,
+        sectionTitle
+      );
+      if (requestId !== examRequestIdRef.current) return;
       if (generated && generated.length > 0) {
         const updatedQuestions = { ...sectionQuestions, [sectionNum]: generated };
         setSectionQuestions(updatedQuestions);
@@ -968,10 +982,11 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
         throw new Error("Invalid question count generated. Please retry.");
       }
     } catch (err: any) {
+      if (requestId !== examRequestIdRef.current) return;
       console.error(err);
       setErrorMessage(err?.message || "Rate limit or connection timeout hit. Please wait a few seconds and try starting again.");
     } finally {
-      setLoadingSection(null);
+      if (requestId === examRequestIdRef.current) setLoadingSection(null);
     }
   };
 
@@ -1496,7 +1511,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
 
                         <button
                           onClick={() => handleStartSection(sec.num, sec.title)}
-                          disabled={isLoad || loadingSection !== null}
+                          disabled={isLoad || loadingSection !== null || isBatchGenerating || isGeneratingBespoke}
                           className={`px-4 py-2 text-xs font-black tracking-widest uppercase rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer ${
                             isLoad
                               ? 'bg-slate-100 text-slate-400'

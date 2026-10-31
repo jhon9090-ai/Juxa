@@ -4,6 +4,7 @@ export interface EnhancedNotebook extends EnhancedNote {
   id: string;
   createdAt: number;
   unitId?: string;
+  folder?: string;
   pinned?: boolean;
 }
 
@@ -34,7 +35,7 @@ export function initDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveNotebook(note: EnhancedNote & { id?: string; createdAt?: number; unitId?: string; pinned?: boolean }, id?: string): Promise<EnhancedNotebook> {
+export async function saveNotebook(note: EnhancedNote & { id?: string; createdAt?: number; unitId?: string; folder?: string; pinned?: boolean }, id?: string): Promise<EnhancedNotebook> {
   const db = await initDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], "readwrite");
@@ -45,6 +46,7 @@ export async function saveNotebook(note: EnhancedNote & { id?: string; createdAt
       id: id || note.id || Date.now().toString(),
       createdAt: note.createdAt || Date.now(),
       unitId: note.unitId,
+      folder: note.folder,
       pinned: note.pinned === undefined ? false : note.pinned
     } as EnhancedNotebook;
 
