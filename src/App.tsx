@@ -717,7 +717,7 @@ export default function App() {
                             </div>
                             <div>
                               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-350 bg-slate-50 px-2 py-0.5 rounded font-mono">
-                                {matchedSubject ? matchedSubject.shortName : "Syllabus Course"}
+                                {notebook.folder === "others" ? "Others" : matchedSubject ? matchedSubject.shortName : "Syllabus Course"}
                               </span>
                               <h4 className="text-sm font-black text-slate-800 line-clamp-1 mt-0.5">
                                 {notebook.title}
