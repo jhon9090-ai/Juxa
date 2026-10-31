@@ -1511,7 +1511,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
 
                         <button
                           onClick={() => handleStartSection(sec.num, sec.title)}
-                          disabled={isLoad || loadingSection !== null}
+                          disabled={isLoad || loadingSection !== null || isBatchGenerating || isGeneratingBespoke}
                           className={`px-4 py-2 text-xs font-black tracking-widest uppercase rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer ${
                             isLoad
                               ? 'bg-slate-100 text-slate-400'
