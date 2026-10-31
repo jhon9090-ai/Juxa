@@ -323,7 +323,7 @@ Return your response formatted cleanly with beautiful markdown. If writing equat
 }
 
 function extractExamSectionContent(noteContent: string, sectionNum: number, sectionTitle: string): string {
-  const headingRegex = /<h([1-6])[^>]*>([\\s\\S]*?)<\\/h\\1>/gi;
+  const headingRegex = /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi;
   const headings: Array<{ start: number; end: number; level: number; title: string }> = [];
   let match: RegExpExecArray | null;
   while ((match = headingRegex.exec(noteContent)) !== null) {
@@ -331,21 +331,21 @@ function extractExamSectionContent(noteContent: string, sectionNum: number, sect
       start: match.index,
       end: headingRegex.lastIndex,
       level: Number(match[1]),
-      title: match[2].replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\\s+/g, " ").trim()
+      title: match[2].replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim()
     });
   }
   const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const target = normalize(sectionTitle);
   const matchedIndex = headings.findIndex(h => {
     const heading = normalize(h.title);
-    return heading === target || heading.includes(target) || target.includes(heading);
+    return Boolean(heading && target && (heading === target || heading.includes(target) || target.includes(heading)));
   });
   if (matchedIndex >= 0) {
     const heading = headings[matchedIndex];
     const nextHeading = headings.slice(matchedIndex + 1).find(h => h.level <= heading.level);
     return noteContent.slice(heading.start, nextHeading?.start ?? noteContent.length);
   }
-  if (headings.length > 1) {
+  if (headings.length >= 10) {
     const startIndex = Math.min(headings.length - 1, Math.floor(((sectionNum - 1) / 10) * headings.length));
     const endIndex = Math.min(headings.length, Math.max(startIndex + 1, Math.floor((sectionNum / 10) * headings.length)));
     return noteContent.slice(headings[startIndex].start, endIndex < headings.length ? headings[endIndex].start : noteContent.length);
