@@ -231,7 +231,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
                   });
 
                   return (
-                    <>
+                    <React.Fragment key={notebook.id}>
                     {showFolderHeading && <div className="px-1 pt-3 pb-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 font-mono">{folderName}</div>}
                     <div
                       key={notebook.id}
@@ -323,7 +323,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
                         </div>
                       </div>
                     </div>
-                    </>
+                    </React.Fragment>
                   );
                 })
               )}
