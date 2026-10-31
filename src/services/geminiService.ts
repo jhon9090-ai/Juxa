@@ -322,19 +322,60 @@ Return your response formatted cleanly with beautiful markdown. If writing equat
   }
 }
 
+function extractExamSectionContent(noteContent: string, sectionNum: number, sectionTitle: string): string {
+  const headingRegex = /<h([1-6])[^>]*>([\\s\\S]*?)<\\/h\\1>/gi;
+  const headings: Array<{ start: number; end: number; level: number; title: string }> = [];
+  let match: RegExpExecArray | null;
+  while ((match = headingRegex.exec(noteContent)) !== null) {
+    headings.push({
+      start: match.index,
+      end: headingRegex.lastIndex,
+      level: Number(match[1]),
+      title: match[2].replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\\s+/g, " ").trim()
+    });
+  }
+  const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const target = normalize(sectionTitle);
+  const matchedIndex = headings.findIndex(h => {
+    const heading = normalize(h.title);
+    return heading === target || heading.includes(target) || target.includes(heading);
+  });
+  if (matchedIndex >= 0) {
+    const heading = headings[matchedIndex];
+    const nextHeading = headings.slice(matchedIndex + 1).find(h => h.level <= heading.level);
+    return noteContent.slice(heading.start, nextHeading?.start ?? noteContent.length);
+  }
+  if (headings.length > 1) {
+    const startIndex = Math.min(headings.length - 1, Math.floor(((sectionNum - 1) / 10) * headings.length));
+    const endIndex = Math.min(headings.length, Math.max(startIndex + 1, Math.floor((sectionNum / 10) * headings.length)));
+    return noteContent.slice(headings[startIndex].start, endIndex < headings.length ? headings[endIndex].start : noteContent.length);
+  }
+  const chunkSize = Math.ceil(noteContent.length / 10);
+  const start = Math.max(0, (sectionNum - 1) * chunkSize);
+  return noteContent.slice(start, Math.min(noteContent.length, start + chunkSize)) || noteContent;
+}
+
 export async function generateExamQuestions(
   noteTitle: string,
   noteContent: string,
   sectionNum: number,
   sectionTitle: string
 ): Promise<MCQ[]> {
+  const sectionContent = extractExamSectionContent(noteContent, sectionNum, sectionTitle);
   const systemPrompt = `You are an elite academic examiner, high-school/university gold-medalist mentor, and highly selective testing board director.
-Your core directive is to author exactly 10 EXTREMELY DIFFICULT multiple choice questions (MCQs) for Section ${sectionNum} ("${sectionTitle}") of a comprehensive 100-question rigorous exam.
+Your core directive is to author exactly 10 EXTREMELY DIFFICULT multiple choice questions (MCQs) ONLY for Section ${sectionNum} ("${sectionTitle}") of a comprehensive 100-question rigorous exam.
 The exam is based on the following textbook lesson: "${noteTitle}".
 
-REVIEWS OF LESSON CONTENT OR SYLLABUS:
+STRICT TOPIC-LOCK:
+- This request is for Section ${sectionNum} titled "${sectionTitle}". Stay on this exact topic for all 10 questions.
+- Do not drift into another chapter topic, repeat another section's central concept, or turn this into a general test on the whole lesson.
+- Each question must assess a distinct concept, relationship, derivation, or application belonging to this section.
+- Use other topics only as brief prerequisites when absolutely necessary; the assessed answer must still depend on the selected section.
+- If the selected section is narrow, create varied applications of that same topic rather than switching topics.
+
+SECTION-SPECIFIC SOURCE MATERIAL (this is the question scope):
 --------------------------------------
-${noteContent.substring(0, 15000)}
+${sectionContent.substring(0, 15000)}
 --------------------------------------
 
 HIGH-COGNITIVE CRITICAL GUIDELINES:
