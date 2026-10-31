@@ -4,6 +4,7 @@ import { LibraryDrawer } from './components/LibraryDrawer';
 import { ModelSettingsModal } from './components/ModelSettingsModal';
 import { UnitWorkspace } from './components/UnitWorkspace';
 import { BulkGenerator } from './components/BulkGenerator';
+import { OtherTopicGenerator } from './components/OtherTopicGenerator';
 import { enhanceNote, EnhancedNote } from './services/geminiService';
 import { saveNotebook, getAllNotebooks, deleteNotebook, EnhancedNotebook } from './services/db';
 import { SYLLABUS, Subject, Theme, Unit } from './data/syllabus';
@@ -59,6 +60,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeModelName, setActiveModelName] = useState("Gemini (Built-In)");
   const [isBulkOpen, setIsBulkOpen] = useState(false);
+  const [isOtherGeneratorOpen, setIsOtherGeneratorOpen] = useState(false);
 
   // Dark Mode State with local persistence
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -147,11 +149,39 @@ export default function App() {
     }
   };
 
+  // Generate an independent topic outside the official syllabus.
+  const handleGenerateOtherTopic = async (topicTitle: string, rawContent: string, depth: number) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const topicContext = { subjectName: "Others", themeName: "Independent Topics", unitName: topicTitle };
+      const sourceContent = rawContent.trim() || `Create a complete, structured lesson from first principles on the topic: "${topicTitle}".`;
+      const result = await enhanceNote(sourceContent, topicContext, depth);
+      const offlineNotebook = await saveNotebook({ ...result, folder: "others" });
+      await loadVaultNotebooks();
+      setIsOtherGeneratorOpen(false);
+      setEnhancedNote(offlineNotebook);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred while generating this independent topic.");
+      setIsOtherGeneratorOpen(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Selection from Drawer / Lesson Workspace jump
   const handleSelectNotebook = (notebook: EnhancedNotebook) => {
     setEnhancedNote(notebook);
     setIsDrawerOpen(false);
     setError(null);
+
+    if (notebook.folder === "others") {
+      setSelectedSubjectId(null);
+      setSelectedThemeId(null);
+      setSelectedUnitId(null);
+      setIsOtherGeneratorOpen(false);
+      return;
+    }
 
     // Auto-traverse menu path to matched unit if available
     if (notebook.unitId) {
@@ -187,6 +217,7 @@ export default function App() {
   const handleBack = () => {
     if (enhancedNote) {
       setEnhancedNote(null);
+      setIsOtherGeneratorOpen(false);
     } else if (selectedUnitId) {
       setSelectedUnitId(null);
     } else if (selectedThemeId) {
@@ -397,6 +428,11 @@ export default function App() {
                   <p className="font-semibold text-sm">{error}</p>
                 </div>
               )}
+            </motion.div>
+          ) : isOtherGeneratorOpen ? (
+            <motion.div key="other-topic-generator" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}>
+              <OtherTopicGenerator onGenerate={handleGenerateOtherTopic} onClose={() => setIsOtherGeneratorOpen(false)} isLoading={isLoading} />
+              {error && <div className="max-w-3xl mx-auto mt-4 px-4 text-sm font-semibold text-red-600">{error}</div>}
             </motion.div>
           ) : selectedThemeId && activeSubject && activeTheme ? (
             /* Selected Theme Detail Screen Listing its Units */
@@ -647,6 +683,16 @@ export default function App() {
                     </div>
                   );
                 })}
+                <button type="button" onClick={() => setIsOtherGeneratorOpen(true)} className="group relative bg-gradient-to-br from-indigo-50 to-white border-2 border-dashed border-indigo-200 hover:border-indigo-400 rounded-3xl p-6 text-left shadow-sm hover:shadow-md transition-all flex flex-col justify-between min-h-[220px]">
+                  <div>
+                    <div className="w-11 h-11 bg-indigo-600 text-white rounded-2xl flex items-center justify-center mb-4 shadow-sm"><BookOpen className="w-5 h-5" /></div>
+                    <h4 className="text-lg font-black text-slate-800 tracking-tight mb-1 group-hover:text-indigo-600">Others</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed">Create lessons on any topic outside the eight syllabus subjects. Saved independently in the Others folder.</p>
+                  </div>
+                  <div className="flex items-center justify-between text-xs font-extrabold text-indigo-700 pt-3 border-t border-indigo-100 font-mono">
+                    <span>Generate an independent topic</span><ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </button>
               </div>
 
               {/* Recently completed lessons if database has items */}
