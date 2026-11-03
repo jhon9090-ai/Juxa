@@ -12,7 +12,7 @@ import {
   Printer, FileDown, RefreshCw, GraduationCap, Award, 
   ChevronRight, ArrowLeft, Brain, Check, X, CheckSquare, 
   Play, BookOpen, AlertCircle, HelpCircle, Trophy, BarChart2,
-  ChevronLeft, FastForward, Clock, Sparkles, Highlighter, MessageSquare, Focus, BrainCircuit, Download, Loader2, WandSparkles, Trash2
+  ChevronLeft, FastForward, Clock, Sparkles, Highlighter, MessageSquare, Focus, BrainCircuit, Download, Loader2, WandSparkles, Trash2, Copy
 } from 'lucide-react';
 
 function getHeaderSectionsFromHtml(html: string, fallbackTitle: string): BespokeSection[] {
@@ -1065,6 +1065,19 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
       if (!root.querySelector(`[data-juxa-annotation="${annotation.id}"]`)) wrapSavedAnnotation(root, annotation);
     });
   }, [note.id, note.annotations, note.htmlContent]);
+
+  const handleCopyStudyScope = async () => {
+    setStudyToolError(null);
+    try {
+      const selectedHtml = extractStudyScope(note.htmlContent, selectedStudyScope);
+      const plainText = new DOMParser().parseFromString(selectedHtml, "text/html").body.innerText.trim();
+      await navigator.clipboard.writeText(plainText);
+      setCustomRoadmapSuccess("Selected topic text copied to clipboard.");
+      setTimeout(() => setCustomRoadmapSuccess(null), 2500);
+    } catch (error) {
+      setStudyToolError(error instanceof Error ? error.message : "Unable to copy this topic. Check clipboard permissions.");
+    }
+  };
 
   const handleStudyTransformation = async (operation: "highlights" | "cloze") => {
     setStudyToolBusy(operation);
@@ -2301,6 +2314,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
               <button type="button" disabled={studyToolBusy !== null} onClick={handleGenerateAnkiCards} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 disabled:opacity-50 px-3.5 py-2.5 text-xs font-extrabold text-slate-700 dark:text-slate-200">
                 {studyToolBusy === "anki" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Generate Anki cards
               </button>
+              <button type="button" onClick={handleCopyStudyScope} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-xs font-extrabold text-slate-700 dark:text-slate-200"><Copy className="w-4 h-4" /> Copy topic text</button>
             </div>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-indigo-100 dark:border-indigo-900/50 pt-3">
