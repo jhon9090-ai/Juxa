@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ArrowLeft, BookOpen, Sparkles, Sliders } from "lucide-react";
-import { getDepthWordBudget } from "../services/geminiService";
+import { getDepthWordBudget, getDepthFromWordTarget } from "../services/geminiService";
 
 interface OtherTopicGeneratorProps {
   onGenerate: (title: string, notes: string, depth: number) => void;
@@ -49,7 +49,11 @@ export const OtherTopicGenerator: React.FC<OtherTopicGeneratorProps> = ({ onGene
             </div>
             <input type="range" min="0" max="100" value={depth} onChange={event => setDepth(Number(event.target.value))} className="w-full accent-indigo-600" />
             <div className="mt-3 rounded-xl bg-white border border-indigo-100 p-3 text-xs text-slate-600">
-              Calculated output restriction: target <strong>{budget.target.toLocaleString()} words</strong>; allowed range <strong>{budget.min.toLocaleString()}–{budget.max.toLocaleString()} words</strong>.
+              <label htmlFor="other-depth-word-target" className="flex items-center justify-between gap-3">
+                <span>Custom target word count</span>
+                <input id="other-depth-word-target" type="number" min="600" max="15000" step="100" value={budget.target} onChange={event => setDepth(getDepthFromWordTarget(Number(event.target.value)))} className="w-28 rounded-lg border border-indigo-200 px-2 py-1 text-sm font-black text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-300" />
+              </label>
+              <p className="mt-2">Allowed range <strong>{budget.min.toLocaleString()}–{budget.max.toLocaleString()} words</strong>. The selected depth also changes the amount of theory, derivation, examples, and nuance.</p>
             </div>
           </div>
           <button type="submit" disabled={!topicTitle.trim() || isLoading} className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black text-sm py-4 transition-colors">
