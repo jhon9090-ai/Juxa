@@ -64,7 +64,9 @@ export default function App() {
 
   // Dark Mode State with local persistence
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    return localStorage.getItem("juxa_dark_mode") === "true";
+    const savedTheme = localStorage.getItem("juxa_dark_mode");
+    // Dark mode is the default for new visitors; respect an explicit saved preference.
+    return savedTheme !== "false";
   });
 
   useEffect(() => {
