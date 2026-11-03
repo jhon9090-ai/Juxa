@@ -263,6 +263,10 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   const selectedRangeRef = useRef<Range | null>(null);
 
   useEffect(() => {
+    if (inlineEditing) articleBodyRef.current?.focus();
+  }, [inlineEditing]);
+
+  useEffect(() => {
     document.body.classList.toggle("juxa-zen-active", isZenMode);
     return () => document.body.classList.remove("juxa-zen-active");
   }, [isZenMode]);
@@ -2266,11 +2270,10 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
         {/* Navigation Breadcrumb */}
         {!isZenMode && <div className="d71 mb-8 no-print">
           <ul className="d72 juxa-note-breadcrumb flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500">
-            <li className="d73 min-w-0 max-w-[20%] truncate cursor-pointer select-none">Notes</li>
-            <li className="d73 shrink-0" aria-hidden="true">›</li>
-            <li className="d116 min-w-0 max-w-[22%] truncate text-slate-400 capitalize">{subjectId}</li>
-            <li className="d73 shrink-0" aria-hidden="true">›</li>
-            <li className="d73 min-w-0 flex-1 truncate text-slate-900 dark:text-slate-100 font-medium" title={note.title}>{note.title}</li>
+            {["Notes", subject?.shortName || subjectId, ...(theme ? [theme.name] : []), ...(unit ? [unit.name] : []), note.title].map((label, index, items) => <React.Fragment key={`${index}-${label}`}>
+              <li className={`min-w-0 truncate ${index === items.length - 1 ? "flex-1 font-semibold text-slate-900 dark:text-slate-100" : "max-w-[22%] text-slate-400"}`} title={label} aria-current={index === items.length - 1 ? "page" : undefined}>{label}</li>
+              {index < items.length - 1 && <li className="shrink-0 text-slate-400" aria-hidden="true">›</li>}
+            </React.Fragment>)}
           </ul>
         </div>}
 
