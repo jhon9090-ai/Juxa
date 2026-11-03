@@ -255,8 +255,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       {/* Header */}
-      <header className="d8 flex items-center justify-between px-4 md:px-8">
-        <div className="flex items-center gap-4">
+      <header className="d8 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2 md:px-8">
+        <div className="flex min-w-0 shrink-0 items-center gap-4">
           {showBackButton && (
             <button 
               onClick={handleBack}
@@ -276,28 +276,28 @@ export default function App() {
         
         {/* Breadcrumb Path for Desktop */}
         {activeSubject && !enhancedNote && (
-          <div className="hidden lg:flex items-center gap-2 text-xs font-bold text-white/50 font-mono">
-            <span>Syllabus</span>
-            <span>/</span>
+          <div className="hidden min-w-0 max-w-[min(42vw,640px)] flex-1 items-center justify-center gap-2 overflow-hidden whitespace-nowrap text-xs font-bold text-white/50 font-mono lg:flex">
+            <span className="shrink-0">Syllabus</span>
+            <span className="shrink-0">/</span>
             <span 
               className={`hover:text-white cursor-pointer transition-colors ${!selectedThemeId ? 'text-white' : ''}`}
               onClick={() => { setSelectedThemeId(null); setSelectedUnitId(null); }}
             >
-              {activeSubject.shortName}
+              <span className="min-w-0 truncate">{activeSubject.shortName}</span>
             </span>
             {activeTheme && (
               <>
-                <span>/</span>
+                <span className="shrink-0">/</span>
                 <span 
                   className={`hover:text-white cursor-pointer transition-colors ${!selectedUnitId ? 'text-white' : ''}`}
                   onClick={() => { setSelectedUnitId(null); }}
                 >
-                  {activeTheme.name}
+                  <span className="min-w-0 truncate">{activeTheme.name}</span>
                 </span>
                 {activeUnit && (
                   <>
-                    <span>/</span>
-                    <span className="text-white">{activeUnit.name}</span>
+                    <span className="shrink-0">/</span>
+                    <span className="min-w-0 truncate text-white">{activeUnit.name}</span>
                   </>
                 )}
               </>
@@ -305,7 +305,7 @@ export default function App() {
           </div>
         )}
 
-        <div className="flex items-center gap-1">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           {enhancedNote && <button type="button" onClick={() => setRecallExerciseOpen(true)} className="d48 d66 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-bold transition-all hover:bg-white/20" title="Open the separate recall exercise"><Brain className="w-4 h-4" /><span className="hidden sm:inline">Recall</span></button>}
           {/* Theme Toggler */}
           <button
