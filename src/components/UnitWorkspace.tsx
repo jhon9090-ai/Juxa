@@ -352,7 +352,7 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
               </span>
             </div>
             <span className="text-xs font-black text-indigo-700 bg-indigo-100/60 px-2.5 py-1 rounded-full font-mono">
-              {depth}% Depth
+              {depth.toFixed(1)}% Depth
             </span>
           </div>
           
