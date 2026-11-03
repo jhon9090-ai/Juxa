@@ -13,6 +13,7 @@ export const OtherTopicGenerator: React.FC<OtherTopicGeneratorProps> = ({ onGene
   const [sourceNotes, setSourceNotes] = useState("");
   const [depth, setDepth] = useState(50);
   const budget = getDepthWordBudget(depth);
+  const [customWordTarget, setCustomWordTarget] = useState(String(budget.target));
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -47,11 +48,11 @@ export const OtherTopicGenerator: React.FC<OtherTopicGeneratorProps> = ({ onGene
               <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-indigo-950"><Sliders className="w-4 h-4" /> AI Generation Depth</div>
               <span className="text-xs font-black text-indigo-700">{depth}%</span>
             </div>
-            <input type="range" min="0" max="100" value={depth} onChange={event => setDepth(Number(event.target.value))} className="w-full accent-indigo-600" />
+            <input type="range" min="0" max="100" value={depth} onChange={event => { const nextDepth = Number(event.target.value); setDepth(nextDepth); setCustomWordTarget(String(getDepthWordBudget(nextDepth).target)); }} className="w-full accent-indigo-600" />
             <div className="mt-3 rounded-xl bg-white border border-indigo-100 p-3 text-xs text-slate-600">
               <label htmlFor="other-depth-word-target" className="flex items-center justify-between gap-3">
                 <span>Custom target word count</span>
-                <input id="other-depth-word-target" type="number" min="600" max="15000" step="100" value={budget.target} onChange={event => setDepth(getDepthFromWordTarget(Number(event.target.value)))} className="w-28 rounded-lg border border-indigo-200 px-2 py-1 text-sm font-black text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-300" />
+                <input id="other-depth-word-target" type="number" min="600" max="15000" step="100" value={customWordTarget} onChange={event => setCustomWordTarget(event.target.value)} onBlur={() => { const target = Number(customWordTarget); if (Number.isFinite(target) && target >= 600) { const nextDepth = getDepthFromWordTarget(target); setDepth(nextDepth); setCustomWordTarget(String(getDepthWordBudget(nextDepth).target)); } else { setCustomWordTarget(String(budget.target)); } }} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} className="w-28 rounded-lg border border-indigo-200 px-2 py-1 text-sm font-black text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-300" />
               </label>
               <p className="mt-2">Allowed range <strong>{budget.min.toLocaleString()}–{budget.max.toLocaleString()} words</strong>. The selected depth also changes the amount of theory, derivation, examples, and nuance.</p>
             </div>
