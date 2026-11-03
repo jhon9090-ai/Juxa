@@ -5,7 +5,7 @@ import {
   Trash2, RotateCw, ArrowRight, Clipboard, Sliders
 } from "lucide-react";
 import { EnhancedNotebook } from "../services/db";
-import { getDepthWordBudget } from "../services/geminiService";
+import { getDepthWordBudget, getDepthFromWordTarget } from "../services/geminiService";
 
 interface UnitWorkspaceProps {
   subjectName: string;
@@ -381,8 +381,9 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
               </p>
               <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/70 px-3.5 py-3">
                 <div className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 font-mono">Calculated AI output restriction</div>
-                <div className="mt-1 text-sm font-black text-slate-800">
-                  Target: {depthBudget.target.toLocaleString()} words
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-black text-slate-800">
+                  <label htmlFor="depth-word-target">Target words</label>
+                  <input id="depth-word-target" type="number" min="600" max="15000" step="100" value={depthBudget.target} onChange={(e) => setDepth(getDepthFromWordTarget(Number(e.target.value)))} className="w-28 rounded-lg border border-indigo-200 bg-white px-2 py-1 text-sm font-black text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-300" />
                 </div>
                 <div className="text-xs text-slate-500 mt-0.5">
                   Allowed range: {depthBudget.min.toLocaleString()}–{depthBudget.max.toLocaleString()} words
