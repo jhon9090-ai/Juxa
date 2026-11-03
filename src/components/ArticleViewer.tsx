@@ -2426,7 +2426,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
             <div className="juxa-companion-content flex flex-wrap gap-2">{note.studyCompanion.keywords.map((word,index)=><span key={index} className="juxa-keyword-chip">{word}</span>)}</div>
           </details>}
           {!!note.studyCompanion?.glossary?.length && <details className="juxa-companion-panel">
-            <summary><span><BookMarked className="h-4 w-4"/>Glossary</span><ChevronRight className="juxa-details-chevron h-4 w-4"/></summary>
+            <summary><span><BookOpen className="h-4 w-4"/>Glossary</span><ChevronRight className="juxa-details-chevron h-4 w-4"/></summary>
             <dl className="juxa-companion-content space-y-3">{note.studyCompanion.glossary.map((entry,index)=><div key={index}><dt className="font-bold text-slate-800 dark:text-slate-100">{entry.term}</dt><dd className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{entry.definition}</dd></div>)}</dl>
           </details>}
           {!companionLoading && !note.studyCompanion && !companionError && <p className="text-xs text-slate-500">Your review material will appear here when generated.</p>}
