@@ -2285,8 +2285,8 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
           </div>
         )}
 
-        {!isZenMode && (
         {/* Study workspace controls: section transformations, reader focus, and text annotations */}
+        {!isZenMode && (
         <div className="no-print mb-6 rounded-2xl border border-indigo-100 dark:border-indigo-900/60 bg-indigo-50/70 dark:bg-indigo-950/25 p-4 md:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
