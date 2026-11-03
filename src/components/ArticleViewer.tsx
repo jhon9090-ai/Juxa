@@ -2285,6 +2285,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
           </div>
         )}
 
+        {!isZenMode && (
         {/* Study workspace controls: section transformations, reader focus, and text annotations */}
         <div className="no-print mb-6 rounded-2xl border border-indigo-100 dark:border-indigo-900/60 bg-indigo-50/70 dark:bg-indigo-950/25 p-4 md:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2292,9 +2293,6 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
               <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300"><BrainCircuit className="w-4 h-4" /> Study Workspace</div>
               <p className="mt-1 text-xs text-slate-500">Choose a topic section, then reformat it, turn key terms into recall blanks, or create Anki cards.</p>
             </div>
-            <button type="button" onClick={() => setIsZenMode(value => !value)} className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-extrabold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40">
-              <Focus className="w-4 h-4" /> {isZenMode ? "Exit Zen Mode" : "Enter Zen Mode"}
-            </button>
           </div>
           <div className="mt-4 flex flex-col lg:flex-row gap-3">
             <label className="flex-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
@@ -2338,6 +2336,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
           </div>}
           {studyToolError && <p className="mt-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-xs font-bold text-rose-600">{studyToolError}</p>}
         </div>
+        )}
 
         {/* Notebook Body Content */}
         <NoteViewerErrorBoundary rawHtml={processedHtml} onHeal={handleFixAllLaTeX}>
