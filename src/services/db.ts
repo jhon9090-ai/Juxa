@@ -1,4 +1,4 @@
-import { EnhancedNote } from "./geminiService";
+import { EnhancedNote, StudyCompanion } from "./geminiService";
 
 export interface StudyAnnotation {
   id: string;
@@ -10,6 +10,7 @@ export interface StudyAnnotation {
 
 export interface EnhancedNotebook extends EnhancedNote {
   annotations?: StudyAnnotation[];
+  studyCompanion?: StudyCompanion;
   id: string;
   createdAt: number;
   unitId?: string;
@@ -44,7 +45,7 @@ export function initDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveNotebook(note: EnhancedNote & { id?: string; createdAt?: number; unitId?: string; folder?: string; annotations?: StudyAnnotation[]; pinned?: boolean }, id?: string): Promise<EnhancedNotebook> {
+export async function saveNotebook(note: EnhancedNote & { id?: string; createdAt?: number; unitId?: string; folder?: string; annotations?: StudyAnnotation[]; pinned?: boolean; studyCompanion?: StudyCompanion }, id?: string): Promise<EnhancedNotebook> {
   const db = await initDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], "readwrite");
