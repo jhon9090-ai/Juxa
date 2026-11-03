@@ -2452,8 +2452,8 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
               </div>
             </div>}
             {showCommentEditor && <div className="juxa-selection-comment">
-              <textarea value={commentDraft} onChange={event=>setCommentDraft(event.target.value)} rows={2} placeholder="Add a note about this passage…"/>
-              <button type="button" onClick={()=>persistStudyAnnotation(commentDraft,"blue")}>Save comment</button>
+              <textarea value={commentDraft} onChange={event=>setCommentDraft(event.target.value)} onMouseDown={event=>event.stopPropagation()} rows={2} placeholder="Add a note about this passage…"/>
+              <button type="button" disabled={!commentDraft.trim()} onClick={()=>persistStudyAnnotation(commentDraft,"blue")}>Save comment</button>
             </div>}
             {studyToolError && <p className="juxa-selection-error">{studyToolError}</p>}
           </div>
