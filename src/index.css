@@ -2293,3 +2293,39 @@ html:not(.dark) .juxa-topic-options{background:#fff;border-color:#e2e2ed;box-sha
 html:not(.dark) .juxa-topic-options button{color:#42445a}
 html:not(.dark) .juxa-topic-options button:hover,html:not(.dark) .juxa-topic-options button.active{background:#efedff;color:#5144bf}
 @media(max-width:640px){.juxa-companion-panel>summary{padding:13px 14px}.juxa-companion-content{padding:13px 14px}}
+
+
+/* Annotation visibility, deletion controls, inline editing and tidy breadcrumbs. */
+.juxa-note-container mark[data-juxa-annotation]{
+  color:inherit!important;
+  text-shadow:none!important;
+  filter:none!important;
+  border-radius:.18em;
+  padding:0 .035em;
+  -webkit-box-decoration-break:clone;
+  box-decoration-break:clone;
+}
+.juxa-note-container mark[data-juxa-comment="true"]{
+  background:transparent!important;
+  color:inherit!important;
+  text-decoration:underline dotted rgba(125,165,205,.6);
+  text-underline-offset:3px;
+}
+.juxa-note-container.juxa-inline-editing{
+  outline:1px dashed rgba(56,155,220,.55);
+  outline-offset:8px;
+  border-radius:4px;
+  caret-color:#48a8e6;
+  cursor:text;
+}
+.juxa-note-container.juxa-inline-editing:focus{outline:1px solid rgba(56,155,220,.6);outline-offset:8px}
+.juxa-note-container.juxa-inline-editing *{cursor:text}
+.juxa-note-breadcrumb{width:100%;max-width:100%;overflow:hidden;line-height:1.5}
+.juxa-note-breadcrumb li{min-width:0}
+.juxa-selection-comment{position:absolute;right:0;top:calc(100% + 9px);z-index:2}
+.juxa-selection-comment textarea{min-height:48px;max-height:160px;outline:none}
+.juxa-selection-comment textarea:focus{border-color:#4c9bd2;box-shadow:0 0 0 2px rgba(76,155,210,.16)}
+@media(max-width:640px){
+  .juxa-note-breadcrumb{font-size:11px;gap:4px}
+  .juxa-note-breadcrumb li{max-width:28%}
+}
