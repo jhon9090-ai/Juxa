@@ -46,7 +46,7 @@ export const OtherTopicGenerator: React.FC<OtherTopicGeneratorProps> = ({ onGene
           <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-5">
             <div className="flex items-center justify-between gap-3 mb-3">
               <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-indigo-950"><Sliders className="w-4 h-4" /> AI Generation Depth</div>
-              <span className="text-xs font-black text-indigo-700">{depth}%</span>
+              <span className="text-xs font-black text-indigo-700">{depth.toFixed(1)}%</span>
             </div>
             <input type="range" min="0" max="100" value={depth} onChange={event => { const nextDepth = Number(event.target.value); setDepth(nextDepth); setCustomWordTarget(String(getDepthWordBudget(nextDepth).target)); }} className="w-full accent-indigo-600" />
             <div className="mt-3 rounded-xl bg-white border border-indigo-100 p-3 text-xs text-slate-600">
