@@ -13,7 +13,7 @@ import {
   History, Settings, BookOpen, GraduationCap, Dna, Binary, 
   Activity, FlaskConical, CheckCircle, ArrowRight, BookOpenCheck,
   ChevronRight, Library, FileText, Sparkles as SparklesIcon,
-  Sun, Moon
+  Sun, Moon, Brain
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
