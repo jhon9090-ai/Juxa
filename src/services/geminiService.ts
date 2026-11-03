@@ -35,37 +35,45 @@ function cleanJsonResponse(text: string): string {
 
 export function getDepthWordBudget(depth: number): { target: number; min: number; max: number } {
   const normalizedDepth = Math.max(0, Math.min(100, Number.isFinite(depth) ? depth : 50));
-  const target = Math.round(500 + normalizedDepth * 30);
-  return {
-    target,
-    min: Math.round(target * 0.9),
-    max: Math.round(target * 1.1)
-  };
+  // Exponential scaling: concise 600-word treatments up to 15,000-word chapters.
+  const target = Math.round((600 * Math.pow(15000 / 600, normalizedDepth / 100)) / 100) * 100;
+  const min = Math.max(450, Math.round(target * 0.88 / 50) * 50);
+  const max = Math.min(15000, Math.round(target * 1.12 / 50) * 50);
+  return { target, min, max };
+}
+
+export function getDepthFromWordTarget(wordTarget: number): number {
+  const target = Math.max(600, Math.min(15000, Number.isFinite(wordTarget) ? wordTarget : 3000));
+  return (Math.log(target / 600) / Math.log(15000 / 600)) * 100;
 }
 
 export function getDepthInstructions(depth: number): string {
-  const budget = getDepthWordBudget(depth);
-  const depthLabel = depth <= 25
-    ? "concise, high-yield coverage"
-    : depth < 50
-      ? "focused explanations with useful supporting detail"
-      : depth <= 60
-        ? "balanced, complete textbook-style coverage"
-        : depth < 80
-          ? "detailed explanations and worked reasoning"
-          : "exhaustive, university-level theoretical depth";
+  const normalizedDepth = Math.max(0, Math.min(100, Number.isFinite(depth) ? depth : 50));
+  const budget = getDepthWordBudget(normalizedDepth);
+  const depthProfile = normalizedDepth <= 12
+    ? "MICRO-OVERVIEW: essential definitions, central claims, formulas, and a compact summary."
+    : normalizedDepth <= 30
+      ? "CONCISE: core ideas with clarifying examples and minimal digression."
+      : normalizedDepth <= 50
+        ? "FOUNDATIONAL: coherent textbook coverage, definitions, conceptual links, and representative examples."
+        : normalizedDepth <= 68
+          ? "DETAILED: thorough explanation, stepwise reasoning, examples, misconceptions, and implications."
+          : normalizedDepth <= 84
+            ? "ADVANCED: deep theory, assumptions, derivations, contrasting frameworks, applications, limitations, and worked examples."
+            : "EXHAUSTIVE: chapter-length treatment with nuanced theory, detailed derivations, broad examples, edge cases, and synthesis.";
 
-  return `MANDATORY GENERATION BUDGET — THIS IS A HARD OUTPUT CONSTRAINT:
-- Selected depth: ${Math.max(0, Math.min(100, depth))}%.
-- Required target length: ${budget.target.toLocaleString("en-US")} words.
-- Permitted final length: ${budget.min.toLocaleString("en-US")}–${budget.max.toLocaleString("en-US")} words (inclusive).
-- The target and permitted range are calculated from the selected slider value. Do not treat the slider as a vague style preference.
-- Plan the chapter to fit this word budget before drafting. Allocate space across the actual concepts proportionally; do not spend the budget repeating introductions or padding.
-- Before returning the JSON, estimate the word count of htmlContent and revise it so it falls inside the permitted range. Do not count HTML tags as words.
-- Do not stop early below the minimum and do not exceed the maximum. Preserve all key concepts from the supplied material while adjusting the detail and explanation depth to fit.
-- Desired explanatory style: ${depthLabel}.
-- At lower levels, compress examples and theoretical background; at higher levels, expand derivations, mechanisms, assumptions, limitations, comparisons, and worked examples.
-- This numeric word-count restriction applies to the generated lesson body (htmlContent), not the JSON syntax, title, or MCQ metadata.`;
+  return `MANDATORY DEPTH SPECIFICATION — follow pedagogical profile and length range:
+- Depth setting: ${normalizedDepth}/100.
+- Pedagogical profile: ${depthProfile}
+- Planned body target: about ${budget.target.toLocaleString("en-US")} words; permitted range ${budget.min.toLocaleString("en-US")}–${budget.max.toLocaleString("en-US")} words.
+- Depth controls breadth, conceptual granularity, reasoning steps, examples, derivations, comparisons, caveats, and synthesis—not just verbosity.
+- For a narrow topic, use the chosen depth to unpack it thoroughly; do not introduce unrelated concepts to inflate length.
+- For a broad topic, allocate proportionally to all important subtopics and preserve supplied syllabus/source scope.
+- At advanced levels, explain prerequisites only when necessary and show reasoning rather than merely asserting conclusions.
+- Plan an outline and section-level word allocation before drafting; avoid repetition and filler.
+- Estimate the final word count of htmlContent excluding HTML tags, JSON, title, and MCQ metadata; keep the body inside the permitted range.
+- Include worked examples, misconceptions, key-term definitions, applications, and synthesis according to the profile.
+- Lower levels prioritize high-yield learning objectives; higher levels expand theory and nuance without sacrificing clarity.`;
 }
 
 export async function enhanceNote(
@@ -74,6 +82,10 @@ export async function enhanceNote(
   depth: number = 50
 ): Promise<EnhancedNote> {
   const source = localStorage.getItem("juxa_api_source") || "builtin";
+  const depthBudget = getDepthWordBudget(depth);
+  // Estimate token headroom for HTML, equations, and the accompanying MCQ JSON.
+  // Keep under common model response ceilings while scaling with the selected chapter depth.
+  const maxOutputTokens = Math.min(32768, Math.max(4096, Math.ceil(depthBudget.target * 1.5)));
   
   const contextHeader = unitContext 
     ? `SUBJECT: ${unitContext.subjectName}
@@ -180,6 +192,7 @@ Ensure the output is 100% valid stringified JSON. Do not wrap in markdown block 
         },
         body: JSON.stringify({
           model: model,
+          max_tokens: maxOutputTokens,
           messages: [
             {
               role: "system",
@@ -220,6 +233,7 @@ Ensure the output is 100% valid stringified JSON. Do not wrap in markdown block 
     contents: `${systemPrompt}\n\nSyllabus Context: ${contextHeader}\nOriginal Source Material:\n${rawNotes === "AUTOMATIC_SYLLABUS_GENERATION_REQUEST" ? "No raw notes provided. Please construct comprehensive study material for this unit entirely from curriculum specifications and standard grade level benchmarks." : rawNotes}`,
     config: {
       responseMimeType: "application/json",
+      maxOutputTokens,
       responseSchema: {
         type: Type.OBJECT,
         properties: {
@@ -257,6 +271,112 @@ Ensure the output is 100% valid stringified JSON. Do not wrap in markdown block 
     console.error("Failed to parse AI response:", error);
     throw new Error("Failed to process notes. Please try again.");
   }
+}
+
+export interface AnkiStudyCard {
+  front: string;
+  back: string;
+  tags: string[];
+}
+
+async function requestStudyJson(prompt: string, schema: any): Promise<any> {
+  const source = localStorage.getItem("juxa_api_source") || "builtin";
+  if (source === "openrouter") {
+    const key = localStorage.getItem("juxa_openrouter_key");
+    const model = localStorage.getItem("juxa_openrouter_model") || "google/gemini-2.5-pro";
+    if (!key || !key.trim()) throw new Error("OpenRouter API Key is missing. Add it in Juxa settings.");
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`,
+        "HTTP-Referer": window.location.origin,
+        "X-Title": "Juxa Study Workspace"
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" }
+      })
+    });
+    if (!response.ok) throw new Error(`OpenRouter returned status ${response.status}`);
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || "";
+    if (!text) throw new Error("The AI returned an empty response.");
+    return JSON.parse(cleanJsonResponse(text));
+  }
+
+  const response = await ai.models.generateContent({
+    model: getBuiltinModel(),
+    contents: prompt,
+    config: { responseMimeType: "application/json", responseSchema: schema }
+  });
+  return JSON.parse(response.text || "{}");
+}
+
+export async function transformStudyContent(
+  noteTitle: string,
+  selectedHtml: string,
+  operation: "highlights" | "cloze"
+): Promise<string> {
+  const operationInstructions = operation === "highlights"
+    ? `Reformat this section for clear studying. Preserve the original facts, scope, equations, and nuance. Improve its hierarchy and readability using valid HTML. Emphasize high-yield definitions, claims, causal links, steps, equations, and contrasts with semantic <strong> and <mark> elements. Use compact callouts or lists only where they genuinely help. Do not add unsupported facts, delete important details, or over-highlight. Keep diagrams and formulas intact.`
+    : `Create a KEY-TERM ACTIVE-RECALL version of this exact section. Preserve the full explanatory text and structure, but replace selected high-value terms, names, definitions' core phrases, formula components, and causal mechanisms with clear blank spans such as <span class="juxa-cloze" data-answer="mitosis">________</span>. Select a reasonable number of blanks, avoiding every-word clozes. Put the correct answer only in data-answer attributes. Retain equations/HTML and do not change meaning. Do not add facts.`;
+
+  const prompt = `You are a careful academic study-editor for "${noteTitle}".\nTASK: ${operationInstructions}\n\nSOURCE HTML (the only content scope):\n${selectedHtml}\n\nReturn a JSON object with exactly one field, "htmlContent", containing the transformed HTML. Keep the HTML well-formed. No markdown fences or explanation.`;
+  const result = await requestStudyJson(prompt, {
+    type: Type.OBJECT,
+    properties: { htmlContent: { type: Type.STRING } },
+    required: ["htmlContent"]
+  });
+  const html = String(result?.htmlContent || "").trim();
+  if (!html) throw new Error("The AI did not return transformed HTML.");
+  return html;
+}
+
+export async function generateAnkiStudyCards(
+  noteTitle: string,
+  selectedHtml: string,
+  count: number = 20
+): Promise<AnkiStudyCard[]> {
+  const safeCount = Math.max(5, Math.min(50, Math.round(count)));
+  const prompt = `You are an expert in evidence-based retrieval practice and Anki flashcard design.
+Create exactly ${safeCount} high-quality cards from the following selected study content in lesson "${noteTitle}".
+Card rules:
+- Keep every card grounded in the provided source; do not import outside facts.
+- Prefer atomic, one-fact or one-reasoning-step cards; one clear question per front.
+- Include definitions, conceptual distinctions, mechanisms, important assumptions, formulas and their interpretation, and key examples as source content supports.
+- Avoid vague prompts, duplicate cards, trivially worded cards, and overly broad essay questions.
+- Keep answers concise but sufficiently precise; preserve necessary qualifiers and equations.
+- Tags should include a short lesson/topic tag and useful concept tags (no spaces; use underscores).
+- Return JSON only, shaped as {"cards":[{"front":"...","back":"...","tags":["..."]}]}.
+\n\nSOURCE HTML CONTENT (exclusive scope):\n${selectedHtml}`;
+
+  const result = await requestStudyJson(prompt, {
+    type: Type.OBJECT,
+    properties: {
+      cards: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            front: { type: Type.STRING },
+            back: { type: Type.STRING },
+            tags: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["front", "back", "tags"]
+        }
+      }
+    },
+    required: ["cards"]
+  });
+  const cards = Array.isArray(result?.cards) ? result.cards : [];
+  if (!cards.length) throw new Error("The AI did not return any flashcards.");
+  return cards.slice(0, safeCount).map((card: any) => ({
+    front: String(card.front || "").trim(),
+    back: String(card.back || "").trim(),
+    tags: Array.isArray(card.tags) ? card.tags.map((tag: unknown) => String(tag).trim()).filter(Boolean) : []
+  })).filter((card: AnkiStudyCard) => card.front && card.back);
 }
 
 export async function askTutorAboutNote(

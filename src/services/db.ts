@@ -1,6 +1,15 @@
 import { EnhancedNote } from "./geminiService";
 
+export interface StudyAnnotation {
+  id: string;
+  quote: string;
+  comment: string;
+  color: "yellow" | "blue" | "pink";
+  createdAt: number;
+}
+
 export interface EnhancedNotebook extends EnhancedNote {
+  annotations?: StudyAnnotation[];
   id: string;
   createdAt: number;
   unitId?: string;
@@ -35,7 +44,7 @@ export function initDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveNotebook(note: EnhancedNote & { id?: string; createdAt?: number; unitId?: string; folder?: string; pinned?: boolean }, id?: string): Promise<EnhancedNotebook> {
+export async function saveNotebook(note: EnhancedNote & { id?: string; createdAt?: number; unitId?: string; folder?: string; annotations?: StudyAnnotation[]; pinned?: boolean }, id?: string): Promise<EnhancedNotebook> {
   const db = await initDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], "readwrite");
