@@ -2093,6 +2093,8 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
         <Focus className="w-4 h-4" /> {isZenMode ? "Exit Zen" : "Zen"}
       </button>
       <style>{`
+        body.juxa-zen-active header.d8 { display: none !important; }
+        body.juxa-zen-active main { padding-top: 0 !important; }
         .juxa-zen-mode .d0 { padding-top: 1.5rem !important; padding-bottom: 3rem !important; }
         .juxa-zen-mode .juxa-note-container { max-width: 850px; margin-left: auto; margin-right: auto; font-size: 1.05rem; line-height: 1.85; }
         .juxa-note-container mark[data-juxa-annotation] { cursor: help; }
