@@ -82,6 +82,10 @@ export async function enhanceNote(
   depth: number = 50
 ): Promise<EnhancedNote> {
   const source = localStorage.getItem("juxa_api_source") || "builtin";
+  const depthBudget = getDepthWordBudget(depth);
+  // Estimate token headroom for HTML, equations, and the accompanying MCQ JSON.
+  // Keep under common model response ceilings while scaling with the selected chapter depth.
+  const maxOutputTokens = Math.min(32768, Math.max(4096, Math.ceil(depthBudget.target * 1.5)));
   
   const contextHeader = unitContext 
     ? `SUBJECT: ${unitContext.subjectName}
@@ -188,6 +192,7 @@ Ensure the output is 100% valid stringified JSON. Do not wrap in markdown block 
         },
         body: JSON.stringify({
           model: model,
+          max_tokens: maxOutputTokens,
           messages: [
             {
               role: "system",
@@ -228,6 +233,7 @@ Ensure the output is 100% valid stringified JSON. Do not wrap in markdown block 
     contents: `${systemPrompt}\n\nSyllabus Context: ${contextHeader}\nOriginal Source Material:\n${rawNotes === "AUTOMATIC_SYLLABUS_GENERATION_REQUEST" ? "No raw notes provided. Please construct comprehensive study material for this unit entirely from curriculum specifications and standard grade level benchmarks." : rawNotes}`,
     config: {
       responseMimeType: "application/json",
+      maxOutputTokens,
       responseSchema: {
         type: Type.OBJECT,
         properties: {
