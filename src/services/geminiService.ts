@@ -279,6 +279,46 @@ export interface AnkiStudyCard {
   tags: string[];
 }
 
+export interface StudyCompanion {
+  summary: string;
+  keywords: string[];
+  glossary: Array<{ term: string; definition: string }>;
+  occlusionItems: Array<{ prompt: string; answer: string }>;
+  sourceSignature: string;
+}
+
+export async function generateStudyCompanion(noteTitle: string, sourceHtml: string): Promise<Omit<StudyCompanion, "sourceSignature">> {
+  const prompt = `Create a compact study companion for the lesson "${noteTitle}" using ONLY the source below.
+Return:
+- summary: a concise but meaningful end-of-note summary that preserves the source's key ideas.
+- keywords: 6–14 high-value terms or phrases, not generic filler.
+- glossary: 5–12 important terms with clear, source-grounded definitions.
+- occlusionItems: 6–12 independent active-recall prompts. Each prompt should be a short clue or sentence with the target concept omitted; answer contains only the hidden term or short phrase. Do not simply copy whole paragraphs. These will be shown separately from the original note.
+Do not introduce facts that are absent from the source. If the source is too short, return fewer items rather than inventing content.
+SOURCE HTML:
+${sourceHtml}`;
+  const result = await requestStudyJson(prompt, {
+    type: Type.OBJECT,
+    properties: {
+      summary: { type: Type.STRING },
+      keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+      glossary: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { term: { type: Type.STRING }, definition: { type: Type.STRING } }, required: ["term", "definition"] } },
+      occlusionItems: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { prompt: { type: Type.STRING }, answer: { type: Type.STRING } }, required: ["prompt", "answer"] } }
+    },
+    required: ["summary", "keywords", "glossary", "occlusionItems"]
+  });
+  const companion = {
+    summary: String(result?.summary || "").trim(),
+    keywords: Array.isArray(result?.keywords) ? result.keywords.map((v: unknown) => String(v).trim()).filter(Boolean) : [],
+    glossary: Array.isArray(result?.glossary) ? result.glossary.filter((v: any) => v?.term && v?.definition).map((v: any) => ({ term: String(v.term).trim(), definition: String(v.definition).trim() })) : [],
+    occlusionItems: Array.isArray(result?.occlusionItems) ? result.occlusionItems.filter((v: any) => v?.prompt && v?.answer).map((v: any) => ({ prompt: String(v.prompt).trim(), answer: String(v.answer).trim() })) : []
+  };
+  if (!companion.summary && !companion.keywords.length && !companion.glossary.length && !companion.occlusionItems.length) {
+    throw new Error("The AI returned an empty study companion.");
+  }
+  return companion;
+}
+
 async function requestStudyJson(prompt: string, schema: any): Promise<any> {
   const source = localStorage.getItem("juxa_api_source") || "builtin";
   if (source === "openrouter") {
