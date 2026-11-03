@@ -2028,9 +2028,6 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
 
               {/* 1:1 Clean Note Preview Container */}
               <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl max-h-[700px] overflow-y-auto shadow-md text-left scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-800">
-                <button type="button" onClick={() => setIsZenMode(value => !value)} title={isZenMode ? "Exit Zen Mode" : "Enter Zen Mode"} className="no-print fixed right-4 top-4 z-[90] inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 px-3 py-2 text-xs font-extrabold text-indigo-700 dark:text-indigo-300 shadow-lg backdrop-blur">
-        <Focus className="w-4 h-4" /> {isZenMode ? "Exit Zen" : "Zen"}
-      </button>
       <style>{`
                   /* Match exactly standard layout folding effects */
                   .juxa-zen-mode .d0 { padding-top: 1.5rem !important; padding-bottom: 3rem !important; }
@@ -2069,6 +2066,9 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
 
   return (
     <div id="juxa-printable-article" className={`d16 bg-white dark:bg-slate-950 transition-all duration-300 ${isZenMode ? 'juxa-zen-mode' : ''}`}>
+                <button type="button" onClick={() => setIsZenMode(value => !value)} title={isZenMode ? "Exit Zen Mode" : "Enter Zen Mode"} className="no-print fixed right-4 top-4 z-[90] inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 px-3 py-2 text-xs font-extrabold text-indigo-700 dark:text-indigo-300 shadow-lg backdrop-blur">
+        <Focus className="w-4 h-4" /> {isZenMode ? "Exit Zen" : "Zen"}
+      </button>
       <style>{`
         .juxa-note-container.is-folded > *:not(h1):not(h2):not(h3) {
           display: none !important;
@@ -2104,7 +2104,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
             <li className="d73">›</li>
             <li className="d73 text-slate-900 dark:text-slate-100 font-medium">{note.title}</li>
           </ul>
-        </div>
+        </div>}
 
         {/* Floating Outline Mode Banner */}
         {isFolded && (
@@ -2176,7 +2176,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
               )}
             </button>
           </div>
-        </div>
+        </div>}
 
         {/* Printable representation of the title (only shown when printed or in exports) */}
         <div className="hidden hide-buttons-canvas:block print:block mb-8 border-b-2 border-slate-900 pb-4">
