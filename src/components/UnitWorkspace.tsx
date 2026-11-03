@@ -70,6 +70,7 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
   const [forceUploader, setForceUploader] = useState(false);
   const [depth, setDepth] = useState(50);
   const depthBudget = getDepthWordBudget(depth);
+  const [customWordTarget, setCustomWordTarget] = useState(String(depthBudget.target));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -361,7 +362,7 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
               min="0"
               max="100"
               value={depth}
-              onChange={(e) => setDepth(Number(e.target.value))}
+              onChange={(e) => { const nextDepth = Number(e.target.value); setDepth(nextDepth); setCustomWordTarget(String(getDepthWordBudget(nextDepth).target)); }}
               className="w-full h-2 bg-indigo-100/60 rounded-lg appearance-none cursor-pointer accent-indigo-600 focus:outline-none"
             />
             
@@ -383,7 +384,7 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
                 <div className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 font-mono">Calculated AI output restriction</div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-black text-slate-800">
                   <label htmlFor="depth-word-target">Target words</label>
-                  <input id="depth-word-target" type="number" min="600" max="15000" step="100" value={depthBudget.target} onChange={(e) => setDepth(getDepthFromWordTarget(Number(e.target.value)))} className="w-28 rounded-lg border border-indigo-200 bg-white px-2 py-1 text-sm font-black text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-300" />
+                  <input id="depth-word-target" type="number" min="600" max="15000" step="100" value={customWordTarget} onChange={(e) => setCustomWordTarget(e.target.value)} onBlur={() => { const target = Number(customWordTarget); if (Number.isFinite(target) && target >= 600) { const nextDepth = getDepthFromWordTarget(target); setDepth(nextDepth); setCustomWordTarget(String(getDepthWordBudget(nextDepth).target)); } else { setCustomWordTarget(String(depthBudget.target)); } }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }} className="w-28 rounded-lg border border-indigo-200 bg-white px-2 py-1 text-sm font-black text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-300" />
                 </div>
                 <div className="text-xs text-slate-500 mt-0.5">
                   Allowed range: {depthBudget.min.toLocaleString()}–{depthBudget.max.toLocaleString()} words
