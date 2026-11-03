@@ -12,7 +12,7 @@ import {
   Printer, FileDown, RefreshCw, GraduationCap, Award, 
   ChevronRight, ArrowLeft, Brain, Check, X, CheckSquare, 
   Play, BookOpen, AlertCircle, HelpCircle, Trophy, BarChart2,
-  ChevronLeft, FastForward, Clock, Sparkles, Highlighter, MessageSquare, Focus, BrainCircuit, Download, Loader2, WandSparkles, Trash2, Copy
+  ChevronLeft, FastForward, Clock, Sparkles, Highlighter, MessageSquare, Focus, BrainCircuit, Download, Loader2, WandSparkles, Trash2, Copy, MoreHorizontal
 } from 'lucide-react';
 
 function getHeaderSectionsFromHtml(html: string, fallbackTitle: string): BespokeSection[] {
@@ -247,6 +247,10 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   const [selectionText, setSelectionText] = useState("");
   const [commentDraft, setCommentDraft] = useState("");
   const [showCommentEditor, setShowCommentEditor] = useState(false);
+  const [showMoreStudyTools, setShowMoreStudyTools] = useState(false);
+  const [selectionPosition, setSelectionPosition] = useState<{ top: number; left: number; bottom: number } | null>(null);
+  const [wordDefinition, setWordDefinition] = useState<{ word: string; definition: string } | null>(null);
+  const [definitionLoading, setDefinitionLoading] = useState(false);
   const articleBodyRef = useRef<HTMLDivElement>(null);
   const selectedRangeRef = useRef<Range | null>(null);
 
@@ -1051,12 +1055,54 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     if (!text || !range || !articleBodyRef.current?.contains(range.commonAncestorContainer)) {
       setSelectionText("");
       selectedRangeRef.current = null;
+      setSelectionPosition(null);
+      setShowMoreStudyTools(false);
+      setShowCommentEditor(false);
       return;
     }
+    const rect = range.getBoundingClientRect();
     setSelectionText(text);
     selectedRangeRef.current = range;
+    setSelectionPosition({ top: Math.max(12, rect.top - 58), left: Math.min(Math.max(16, rect.left + rect.width / 2), window.innerWidth - 180), bottom: rect.bottom });
+    setShowMoreStudyTools(false);
     setShowCommentEditor(false);
   };
+
+  useEffect(() => {
+    const word = selectionText.trim();
+    if (!word || !/^[\\p{L}\\p{N}'’\\-]+$/u.test(word)) {
+      setWordDefinition(null);
+      setDefinitionLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setDefinitionLoading(true);
+    setWordDefinition(null);
+    fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`, { signal: controller.signal })
+      .then(response => { if (!response.ok) throw new Error("Definition unavailable"); return response.json(); })
+      .then((entries: any[]) => {
+        const definition = entries?.[0]?.meanings?.[0]?.definitions?.[0]?.definition;
+        setWordDefinition({ word, definition: definition || "No concise definition was found." });
+      })
+      .catch(error => { if (error?.name !== "AbortError") setWordDefinition({ word, definition: "Definition unavailable right now." }); })
+      .finally(() => { if (!controller.signal.aborted) setDefinitionLoading(false); });
+    return () => controller.abort();
+  }, [selectionText]);
+
+  useEffect(() => {
+    const clearWhenDeselected = () => {
+      if (!(window.getSelection()?.toString().trim())) {
+        setSelectionText("");
+        selectedRangeRef.current = null;
+        setSelectionPosition(null);
+        setWordDefinition(null);
+        setShowMoreStudyTools(false);
+        setShowCommentEditor(false);
+      }
+    };
+    document.addEventListener("selectionchange", clearWhenDeselected);
+    return () => document.removeEventListener("selectionchange", clearWhenDeselected);
+  }, []);
 
   useEffect(() => {
     const root = articleBodyRef.current;
@@ -1099,7 +1145,9 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     setStudyToolBusy("anki");
     setStudyToolError(null);
     try {
-      const selectedHtml = extractStudyScope(note.htmlContent, selectedStudyScope);
+      const selectedHtml = selectionText
+        ? `<p>${selectionText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`
+        : extractStudyScope(note.htmlContent, selectedStudyScope);
       const cards = await generateAnkiStudyCards(note.title, selectedHtml, 20);
       setAnkiCards(cards);
       setShowAnkiCards(true);
@@ -2285,62 +2333,44 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
           </div>
         )}
 
-        {/* Study workspace controls: section transformations, reader focus, and text annotations */}
-        {!isZenMode && (
-        <div className="no-print mb-6 rounded-2xl border border-indigo-100 dark:border-indigo-900/60 bg-indigo-50/70 dark:bg-indigo-950/25 p-4 md:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300"><BrainCircuit className="w-4 h-4" /> Study Workspace</div>
-              <p className="mt-1 text-xs text-slate-500">Choose a topic section, then reformat it, turn key terms into recall blanks, or create Anki cards.</p>
+        {/* Contextual study tools appear only while lesson text is selected. */}
+        {selectionText && selectionPosition && (
+          <div className="no-print juxa-selection-tools" style={{ position:"fixed", top:selectionPosition.top, left:selectionPosition.left, transform:"translateX(-50%)", zIndex:120 }} onMouseDown={event=>event.preventDefault()}>
+            <div className="juxa-selection-toolbar">
+              <button type="button" onClick={()=>persistStudyAnnotation("", "yellow")} title="Highlight selected text" className="juxa-tool-button juxa-tool-primary"><Highlighter className="w-4 h-4"/><span>Highlight</span></button>
+              <button type="button" disabled={studyToolBusy!==null} onClick={handleGenerateAnkiCards} title="Create Anki cards from selected text" className="juxa-tool-button">{studyToolBusy==="anki"?<Loader2 className="w-4 h-4 animate-spin"/>:<Download className="w-4 h-4"/>}<span>Anki</span></button>
+              <button type="button" onClick={()=>setShowMoreStudyTools(v=>!v)} aria-expanded={showMoreStudyTools} title="More study tools" className="juxa-tool-icon"><MoreHorizontal className="w-5 h-5"/></button>
             </div>
+            {showMoreStudyTools && <div className="juxa-selection-menu">
+              <div className="juxa-selection-menu-label">More study tools</div>
+              <button type="button" onClick={()=>{setShowCommentEditor(true);setShowMoreStudyTools(false);}}><MessageSquare className="w-4 h-4"/>Add a comment</button>
+              <button type="button" disabled={studyToolBusy!==null} onClick={()=>handleStudyTransformation("highlights")}><WandSparkles className="w-4 h-4"/>Highlight key information in topic</button>
+              <button type="button" disabled={studyToolBusy!==null} onClick={()=>handleStudyTransformation("cloze")}><BrainCircuit className="w-4 h-4"/>Create recall blanks in topic</button>
+              <button type="button" onClick={()=>{navigator.clipboard.writeText(selectionText);setShowMoreStudyTools(false);}}><Copy className="w-4 h-4"/>Copy selected text</button>
+              <div className="juxa-selection-scope">
+                <label htmlFor="juxa-topic-scope">AI topic scope</label>
+                <select id="juxa-topic-scope" value={selectedStudyScope} onChange={event=>setSelectedStudyScope(event.target.value)}>
+                  <option value="__all__">Entire lesson</option>
+                  {getStudyHeadingScopes(note.htmlContent).map(title=><option key={title} value={title}>{title}</option>)}
+                </select>
+                <button type="button" onClick={()=>{handleCopyStudyScope();setShowMoreStudyTools(false);}}><Copy className="w-4 h-4"/>Copy topic text</button>
+              </div>
+            </div>}
+            {showCommentEditor && <div className="juxa-selection-comment">
+              <textarea value={commentDraft} onChange={event=>setCommentDraft(event.target.value)} rows={2} placeholder="Add a note about this passage…"/>
+              <button type="button" onClick={()=>persistStudyAnnotation(commentDraft,"blue")}>Save comment</button>
+            </div>}
+            {studyToolError && <p className="juxa-selection-error">{studyToolError}</p>}
           </div>
-          <div className="mt-4 flex flex-col lg:flex-row gap-3">
-            <label className="flex-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
-              Topic scope
-              <select value={selectedStudyScope} onChange={event => setSelectedStudyScope(event.target.value)} className="mt-1 block w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-200 normal-case tracking-normal">
-                <option value="__all__">Entire lesson — all topics</option>
-                {getStudyHeadingScopes(note.htmlContent).map(title => <option key={title} value={title}>{title}</option>)}
-              </select>
-            </label>
-            <div className="flex flex-wrap items-end gap-2">
-              <button type="button" disabled={studyToolBusy !== null} onClick={() => handleStudyTransformation("highlights")} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 px-3.5 py-2.5 text-xs font-extrabold text-white">
-                {studyToolBusy === "highlights" ? <Loader2 className="w-4 h-4 animate-spin" /> : <WandSparkles className="w-4 h-4" />} Highlight key information
-              </button>
-              <button type="button" disabled={studyToolBusy !== null} onClick={() => handleStudyTransformation("cloze")} className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 disabled:opacity-50 px-3.5 py-2.5 text-xs font-extrabold text-indigo-700 dark:text-indigo-300">
-                {studyToolBusy === "cloze" ? <Loader2 className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4" />} Hide key terms (recall)
-              </button>
-              <button type="button" disabled={studyToolBusy !== null} onClick={handleGenerateAnkiCards} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 disabled:opacity-50 px-3.5 py-2.5 text-xs font-extrabold text-slate-700 dark:text-slate-200">
-                {studyToolBusy === "anki" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Generate Anki cards
-              </button>
-              <button type="button" onClick={handleCopyStudyScope} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-xs font-extrabold text-slate-700 dark:text-slate-200"><Copy className="w-4 h-4" /> Copy topic text</button>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-indigo-100 dark:border-indigo-900/50 pt-3">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Select text in the lesson to annotate</span>
-            {selectionText ? <span className="max-w-full truncate rounded-lg bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-600 dark:text-slate-300">“{selectionText.slice(0, 180)}{selectionText.length > 180 ? "…" : ""}”</span> : <span className="text-xs text-slate-400">No text selected</span>}
-            <button type="button" disabled={!selectionText} onClick={() => persistStudyAnnotation("", "yellow")} className="inline-flex items-center gap-1.5 rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-extrabold text-amber-800 disabled:opacity-40"><Highlighter className="w-3.5 h-3.5" /> Highlight</button>
-            <button type="button" disabled={!selectionText} onClick={() => setShowCommentEditor(value => !value)} className="inline-flex items-center gap-1.5 rounded-lg bg-sky-100 px-3 py-1.5 text-xs font-extrabold text-sky-800 disabled:opacity-40"><MessageSquare className="w-3.5 h-3.5" /> Add comment</button>
-            <span className="ml-auto text-[10px] font-bold text-slate-400">{(note.annotations || []).length} saved annotation{(note.annotations || []).length === 1 ? "" : "s"}</span>
-          </div>
-          {showCommentEditor && selectionText && <div className="mt-3 flex flex-col sm:flex-row gap-2">
-            <textarea value={commentDraft} onChange={event => setCommentDraft(event.target.value)} rows={2} placeholder="Add a note or question about this highlighted passage…" className="flex-1 rounded-xl border border-sky-200 bg-white dark:bg-slate-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-200" />
-            <button type="button" onClick={() => persistStudyAnnotation(commentDraft, "blue")} className="rounded-xl bg-sky-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-sky-700">Save comment</button>
-          </div>}
-          {(note.annotations || []).length > 0 && <div className="mt-3 border-t border-indigo-100 dark:border-indigo-900/50 pt-3 space-y-2">
-            <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Saved highlights & comments</div>
-            {(note.annotations || []).map(annotation => <div key={annotation.id} className="flex items-start gap-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-2.5">
-              <span className={`mt-0.5 h-2.5 w-2.5 rounded-sm flex-shrink-0 ${annotation.color === "blue" ? "bg-sky-300" : annotation.color === "pink" ? "bg-pink-300" : "bg-amber-300"}`} />
-              <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-2">“{annotation.quote}”</p>{annotation.comment && <p className="mt-1 text-xs text-sky-700 dark:text-sky-300">{annotation.comment}</p>}</div>
-              <button type="button" onClick={() => removeStudyAnnotation(annotation.id)} title="Remove annotation" className="rounded-md p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"><Trash2 className="w-3.5 h-3.5" /></button>
-            </div>)}
-          </div>}
-          {studyToolError && <p className="mt-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-xs font-bold text-rose-600">{studyToolError}</p>}
-        </div>
         )}
-
+        {wordDefinition && selectionPosition && <div className="no-print juxa-word-definition" style={{position:"fixed",top:Math.min(selectionPosition.bottom+12,window.innerHeight-120),left:selectionPosition.left,transform:"translateX(-50%)",zIndex:115}}>
+          <div className="juxa-definition-word">{wordDefinition.word}</div>
+          <p>{definitionLoading?"Looking up definition…":wordDefinition.definition}</p><span>Quick definition</span>
+        </div>}
+        {studyToolError && !selectionText && <p className="no-print mb-4 rounded-lg bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-xs font-bold text-rose-600">{studyToolError}</p>}
         {/* Notebook Body Content */}
         <NoteViewerErrorBoundary rawHtml={processedHtml} onHeal={handleFixAllLaTeX}>
-          <div ref={articleBodyRef} onMouseUp={captureTextSelection} className={`juxa-note-container prose prose-slate dark:prose-invert max-w-none ${isFolded ? 'is-folded' : ''}`}>
+          <div ref={articleBodyRef} onMouseUp={captureTextSelection} onTouchEnd={captureTextSelection} className={`juxa-note-container prose prose-slate dark:prose-invert max-w-none ${isFolded ? 'is-folded' : ''}`}>
             {parse(processedHtml, finalOptions)}
           </div>
         </NoteViewerErrorBoundary>
