@@ -121,15 +121,15 @@ export function cleanLaTeX(math: string): string {
 }
 
 function normalizeStudyHeading(value: string): string {
-  return value.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\\s+/g, " ").trim().toLowerCase();
+  return value.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
 function getStudyHeadingScopes(html: string): string[] {
-  const regex = /<h([2-3])[^>]*>([\\s\\S]*?)<\\/h\\1>/gi;
+  const regex = /<h([2-3])[^>]*>([\s\S]*?)<\/h\1>/gi;
   const titles: string[] = [];
   let match: RegExpExecArray | null;
   while ((match = regex.exec(html)) !== null) {
-    const title = match[2].replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\\s+/g, " ").trim();
+    const title = match[2].replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
     if (title && !titles.includes(title)) titles.push(title);
   }
   return titles;
@@ -137,11 +137,11 @@ function getStudyHeadingScopes(html: string): string[] {
 
 function extractStudyScope(html: string, scopeTitle: string): string {
   if (scopeTitle === "__all__") return html;
-  const regex = /<h([2-6])[^>]*>([\\s\\S]*?)<\\/h\\1>/gi;
+  const regex = /<h([2-6])[^>]*>([\s\S]*?)<\/h\1>/gi;
   const headings: Array<{ start: number; level: number; title: string }> = [];
   let match: RegExpExecArray | null;
   while ((match = regex.exec(html)) !== null) {
-    headings.push({ start: match.index, level: Number(match[1]), title: match[2].replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\\s+/g, " ").trim() });
+    headings.push({ start: match.index, level: Number(match[1]), title: match[2].replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim() });
   }
   const target = normalizeStudyHeading(scopeTitle);
   const index = headings.findIndex(item => normalizeStudyHeading(item.title) === target);
@@ -153,11 +153,11 @@ function extractStudyScope(html: string, scopeTitle: string): string {
 
 function replaceStudyScope(html: string, scopeTitle: string, replacement: string): string {
   if (scopeTitle === "__all__") return replacement;
-  const regex = /<h([2-6])[^>]*>([\\s\\S]*?)<\\/h\\1>/gi;
+  const regex = /<h([2-6])[^>]*>([\s\S]*?)<\/h\1>/gi;
   const headings: Array<{ start: number; level: number; title: string }> = [];
   let match: RegExpExecArray | null;
   while ((match = regex.exec(html)) !== null) {
-    headings.push({ start: match.index, level: Number(match[1]), title: match[2].replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\\s+/g, " ").trim() });
+    headings.push({ start: match.index, level: Number(match[1]), title: match[2].replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim() });
   }
   const target = normalizeStudyHeading(scopeTitle);
   const index = headings.findIndex(item => normalizeStudyHeading(item.title) === target);
@@ -1080,9 +1080,9 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   };
 
   const exportAnkiTsv = () => {
-    const escapeField = (value: string) => value.replace(/\\t/g, " ").replace(/\\r?\\n/g, "<br>").replace(/"/g, '""');
-    const rows = ankiCards.map(card => [card.front, card.back, card.tags.join(" ")].map(escapeField).map(value => `"${value}"`).join("\\t"));
-    const blob = new Blob(["#separator:tab\\n#html:true\\n#tags column:3\\n" + rows.join("\\n")], { type: "text/tab-separated-values;charset=utf-8" });
+    const escapeField = (value: string) => value.replace(/\t/g, " ").replace(/\r?\n/g, "<br>").replace(/"/g, '""');
+    const rows = ankiCards.map(card => [card.front, card.back, card.tags.join(" ")].map(escapeField).map(value => `"${value}"`).join("\t"));
+    const blob = new Blob(["#separator:tab\n#html:true\n#tags column:3\n" + rows.join("\n")], { type: "text/tab-separated-values;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
