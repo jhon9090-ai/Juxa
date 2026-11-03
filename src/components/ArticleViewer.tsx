@@ -4,7 +4,7 @@ import parse from 'html-react-parser';
 import katex from 'katex';
 import { SafeMath } from './SafeMath';
 import { MCQComponent } from './MCQComponent';
-import { EnhancedNote, generateExamQuestions, MCQ, generateBespokeExamSections, BespokeSection, fixAllLaTeXInDocument, healDocumentFormulaWithAI, fixLaTeXEquation, continueNote, transformStudyContent, generateAnkiStudyCards, AnkiStudyCard } from '../services/geminiService';
+import { EnhancedNote, generateExamQuestions, MCQ, generateBespokeExamSections, BespokeSection, fixAllLaTeXInDocument, healDocumentFormulaWithAI, fixLaTeXEquation, continueNote, transformStudyContent, generateAnkiStudyCards, generateStudyCompanion, AnkiStudyCard } from '../services/geminiService';
 import { saveNotebook, EnhancedNotebook, StudyAnnotation } from '../services/db';
 import { SYLLABUS } from '../data/syllabus';
 import { NoteViewerErrorBoundary } from './NoteViewerErrorBoundary';
@@ -205,9 +205,11 @@ function wrapSavedAnnotation(root: HTMLElement, annotation: StudyAnnotation): vo
 interface ArticleViewerProps {
   note: EnhancedNotebook;
   onUpdateNote?: (note: EnhancedNotebook) => void;
+  recallExerciseOpen?: boolean;
+  onCloseRecallExercise?: () => void;
 }
 
-export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote }) => {
+export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote, recallExerciseOpen = false, onCloseRecallExercise }) => {
   const [exporting, setExporting] = useState(false);
   
   // 100 MCQ Exam States
@@ -240,6 +242,10 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   const [isContinuing, setIsContinuing] = useState(false);
   const [isZenMode, setIsZenMode] = useState(false);
   const [selectedStudyScope, setSelectedStudyScope] = useState("__all__");
+  const [showTopicOptions, setShowTopicOptions] = useState(false);
+  const [companionLoading, setCompanionLoading] = useState(false);
+  const [companionError, setCompanionError] = useState<string | null>(null);
+  const [revealedOcclusionItems, setRevealedOcclusionItems] = useState<number[]>([]);
   const [studyToolBusy, setStudyToolBusy] = useState<"highlights" | "cloze" | "anki" | null>(null);
   const [studyToolError, setStudyToolError] = useState<string | null>(null);
   const [ankiCards, setAnkiCards] = useState<AnkiStudyCard[]>([]);
@@ -305,8 +311,31 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     setSelectionPosition(null);
     setWordDefinition(null);
     setShowMoreStudyTools(false);
+    setShowTopicOptions(false);
+    setRevealedOcclusionItems([]);
     selectedRangeRef.current = null;
   }, [note.title, note.htmlContent]);
+
+  // Generate and persist a companion once per note revision. This content lives outside the original note HTML.
+  const companionSignature = `${note.title}:${note.htmlContent.length}:${note.htmlContent.slice(0, 96)}:${note.htmlContent.slice(-64)}`;
+  useEffect(() => {
+    if (note.studyCompanion?.sourceSignature === companionSignature) return;
+    let cancelled = false;
+    setCompanionLoading(true);
+    setCompanionError(null);
+    generateStudyCompanion(note.title, note.htmlContent)
+      .then(async generated => {
+        if (cancelled) return;
+        const updatedNotebook = { ...note, studyCompanion: { ...generated, sourceSignature: companionSignature } };
+        await saveNotebook(updatedNotebook);
+        if (!cancelled) onUpdateNote?.(updatedNotebook);
+      })
+      .catch(error => {
+        if (!cancelled) setCompanionError(error instanceof Error ? error.message : "Unable to generate the study companion.");
+      })
+      .finally(() => { if (!cancelled) setCompanionLoading(false); });
+    return () => { cancelled = true; };
+  }, [note.id, note.title, note.htmlContent, note.studyCompanion?.sourceSignature, companionSignature, onUpdateNote]);
 
   const saveProgress = (
     newQuestions: { [key: number]: MCQ[] },
@@ -2340,7 +2369,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
         {selectionText && selectionPosition && (
           <div className="no-print juxa-selection-tools" style={{ position:"fixed", top:selectionPosition.top, left:selectionPosition.left, transform:"translateX(-50%)", zIndex:120 }} onMouseDown={event=>event.preventDefault()}>
             <div className="juxa-selection-toolbar">
-              <button type="button" onClick={()=>persistStudyAnnotation("", "yellow")} title="Highlight selected text" className="juxa-tool-button juxa-tool-primary"><Highlighter className="w-4 h-4"/><span>Highlight</span></button>
+              <button type="button" onClick={()=>persistStudyAnnotation("", "yellow")} title="Manually highlight selected text in yellow (no AI)" className="juxa-tool-button juxa-tool-primary"><Highlighter className="w-4 h-4"/><span>Manual highlight</span></button><button type="button" onClick={()=>persistStudyAnnotation("", "blue")} title="Manual blue highlight" className="juxa-tool-icon"><span className="h-3.5 w-3.5 rounded-sm border border-white/40 bg-sky-300"/></button><button type="button" onClick={()=>persistStudyAnnotation("", "pink")} title="Manual pink highlight" className="juxa-tool-icon"><span className="h-3.5 w-3.5 rounded-sm border border-white/40 bg-pink-300"/></button>
               <button type="button" disabled={studyToolBusy!==null} onClick={handleGenerateAnkiCards} title="Create Anki cards from selected text" className="juxa-tool-button">{studyToolBusy==="anki"?<Loader2 className="w-4 h-4 animate-spin"/>:<Download className="w-4 h-4"/>}<span>Anki</span></button>
               <button type="button" onClick={()=>setShowMoreStudyTools(v=>!v)} aria-expanded={showMoreStudyTools} title="More study tools" className="juxa-tool-icon"><MoreHorizontal className="w-5 h-5"/></button>
             </div>
@@ -2351,11 +2380,14 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
               <button type="button" disabled={studyToolBusy!==null} onClick={()=>handleStudyTransformation("cloze")}><BrainCircuit className="w-4 h-4"/>Create recall blanks in topic</button>
               <button type="button" onClick={()=>{navigator.clipboard.writeText(selectionText);setShowMoreStudyTools(false);}}><Copy className="w-4 h-4"/>Copy selected text</button>
               <div className="juxa-selection-scope">
-                <label htmlFor="juxa-topic-scope">AI topic scope</label>
-                <select id="juxa-topic-scope" value={selectedStudyScope} onChange={event=>setSelectedStudyScope(event.target.value)}>
-                  <option value="__all__">Entire lesson</option>
-                  {getStudyHeadingScopes(note.htmlContent).map(title=><option key={title} value={title}>{title}</option>)}
-                </select>
+                <label>AI topic scope</label>
+                <button type="button" className="juxa-topic-trigger" aria-expanded={showTopicOptions} onClick={()=>setShowTopicOptions(value=>!value)}>
+                  <span>{selectedStudyScope === "__all__" ? "Entire lesson" : selectedStudyScope}</span><ChevronRight className={`w-3.5 h-3.5 transition-transform ${showTopicOptions ? "rotate-90" : ""}`}/>
+                </button>
+                {showTopicOptions && <div className="juxa-topic-options">
+                  <button type="button" className={selectedStudyScope === "__all__" ? "active" : ""} onClick={()=>{setSelectedStudyScope("__all__");setShowTopicOptions(false);}}>Entire lesson</button>
+                  {getStudyHeadingScopes(note.htmlContent).map(title=><button type="button" key={title} className={selectedStudyScope === title ? "active" : ""} onClick={()=>{setSelectedStudyScope(title);setShowTopicOptions(false);}}>{title}</button>)}
+                </div>}
                 <button type="button" onClick={()=>{handleCopyStudyScope();setShowMoreStudyTools(false);}}><Copy className="w-4 h-4"/>Copy topic text</button>
               </div>
             </div>}
@@ -2377,6 +2409,49 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
             {parse(processedHtml, finalOptions)}
           </div>
         </NoteViewerErrorBoundary>
+
+        {/* AI-generated study companion is appended as a separate, collapsible section. */}
+        <section className="no-print juxa-study-companion mt-10 mx-auto max-w-4xl space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div><span className="text-[9px] font-black uppercase tracking-[.16em] text-sky-500">Study companion</span><h2 className="mt-1 text-xl font-extrabold text-slate-900 dark:text-slate-100">Review this lesson</h2></div>
+            {companionLoading && <span className="inline-flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-4 w-4 animate-spin"/>Preparing your review</span>}
+          </div>
+          {companionError && <p className="rounded-xl border border-rose-300/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-500">{companionError} You can reopen the note to retry.</p>}
+          {note.studyCompanion?.summary && <details className="juxa-companion-panel" open>
+            <summary><span><BookOpen className="h-4 w-4"/>Main summary</span><ChevronRight className="juxa-details-chevron h-4 w-4"/></summary>
+            <div className="juxa-companion-content"><p>{note.studyCompanion.summary}</p></div>
+          </details>}
+          {!!note.studyCompanion?.keywords?.length && <details className="juxa-companion-panel">
+            <summary><span><Sparkles className="h-4 w-4"/>Key words</span><ChevronRight className="juxa-details-chevron h-4 w-4"/></summary>
+            <div className="juxa-companion-content flex flex-wrap gap-2">{note.studyCompanion.keywords.map((word,index)=><span key={index} className="juxa-keyword-chip">{word}</span>)}</div>
+          </details>}
+          {!!note.studyCompanion?.glossary?.length && <details className="juxa-companion-panel">
+            <summary><span><BookMarked className="h-4 w-4"/>Glossary</span><ChevronRight className="juxa-details-chevron h-4 w-4"/></summary>
+            <dl className="juxa-companion-content space-y-3">{note.studyCompanion.glossary.map((entry,index)=><div key={index}><dt className="font-bold text-slate-800 dark:text-slate-100">{entry.term}</dt><dd className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{entry.definition}</dd></div>)}</dl>
+          </details>}
+          {!companionLoading && !note.studyCompanion && !companionError && <p className="text-xs text-slate-500">Your review material will appear here when generated.</p>}
+        </section>
+
+        {recallExerciseOpen && <div className="no-print fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Separate occlusion recall exercise">
+          <div className="w-full max-w-2xl max-h-[88vh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-5 text-slate-100 shadow-2xl md:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div><span className="text-[9px] font-black uppercase tracking-[.16em] text-sky-400">Separate practice space</span><h2 className="mt-1 text-2xl font-black">Occlusion recall</h2><p className="mt-1 text-xs text-slate-400">Generated from “{note.title}”. Your original note remains unchanged.</p></div>
+              <button type="button" onClick={onCloseRecallExercise} className="rounded-xl border border-slate-700 p-2 text-slate-300 hover:bg-slate-800" aria-label="Close recall exercise"><X className="h-5 w-5"/></button>
+            </div>
+            {companionLoading && <div className="flex items-center gap-2 py-8 text-sm text-slate-300"><Loader2 className="h-4 w-4 animate-spin"/>Generating this note's recall exercise…</div>}
+            {companionError && <p className="mt-5 rounded-xl bg-rose-950/60 p-3 text-sm text-rose-200">{companionError}</p>}
+            {!companionLoading && !!note.studyCompanion?.occlusionItems?.length && <div className="mt-5 space-y-3">
+              <p className="text-xs text-slate-400">{note.studyCompanion.occlusionItems.length} prompts · Reveal each answer when ready</p>
+              {note.studyCompanion.occlusionItems.map((item,index)=><article key={index} className="rounded-2xl border border-slate-700 bg-slate-800/80 p-4">
+                <div className="text-[9px] font-black uppercase tracking-widest text-sky-400">Prompt {index+1}</div>
+                <p className="mt-2 text-sm leading-relaxed text-slate-100">{item.prompt}</p>
+                {revealedOcclusionItems.includes(index) ? <div className="mt-3 rounded-xl border border-emerald-700/60 bg-emerald-950/50 px-3 py-2 text-sm font-bold text-emerald-200">{item.answer}</div> : <button type="button" onClick={()=>setRevealedOcclusionItems(current=>[...current,index])} className="mt-3 rounded-lg bg-sky-700 px-3 py-2 text-xs font-bold text-white hover:bg-sky-600">Reveal answer</button>}
+              </article>)}
+              <button type="button" onClick={()=>setRevealedOcclusionItems([])} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800">Reset all answers</button>
+            </div>}
+            {!companionLoading && !companionError && !note.studyCompanion?.occlusionItems?.length && <p className="mt-6 text-sm text-slate-400">No recall prompts are available for this note yet.</p>}
+          </div>
+        </div>}
 
         {showAnkiCards && (
           <div className="no-print fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Generated Anki flashcards">
