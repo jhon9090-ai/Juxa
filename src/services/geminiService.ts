@@ -267,6 +267,112 @@ Ensure the output is 100% valid stringified JSON. Do not wrap in markdown block 
   }
 }
 
+export interface AnkiStudyCard {
+  front: string;
+  back: string;
+  tags: string[];
+}
+
+async function requestStudyJson(prompt: string, schema: any): Promise<any> {
+  const source = localStorage.getItem("juxa_api_source") || "builtin";
+  if (source === "openrouter") {
+    const key = localStorage.getItem("juxa_openrouter_key");
+    const model = localStorage.getItem("juxa_openrouter_model") || "google/gemini-2.5-pro";
+    if (!key || !key.trim()) throw new Error("OpenRouter API Key is missing. Add it in Juxa settings.");
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`,
+        "HTTP-Referer": window.location.origin,
+        "X-Title": "Juxa Study Workspace"
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" }
+      })
+    });
+    if (!response.ok) throw new Error(`OpenRouter returned status ${response.status}`);
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || "";
+    if (!text) throw new Error("The AI returned an empty response.");
+    return JSON.parse(cleanJsonResponse(text));
+  }
+
+  const response = await ai.models.generateContent({
+    model: getBuiltinModel(),
+    contents: prompt,
+    config: { responseMimeType: "application/json", responseSchema: schema }
+  });
+  return JSON.parse(response.text || "{}");
+}
+
+export async function transformStudyContent(
+  noteTitle: string,
+  selectedHtml: string,
+  operation: "highlights" | "cloze"
+): Promise<string> {
+  const operationInstructions = operation === "highlights"
+    ? `Reformat this section for clear studying. Preserve the original facts, scope, equations, and nuance. Improve its hierarchy and readability using valid HTML. Emphasize high-yield definitions, claims, causal links, steps, equations, and contrasts with semantic <strong> and <mark> elements. Use compact callouts or lists only where they genuinely help. Do not add unsupported facts, delete important details, or over-highlight. Keep diagrams and formulas intact.`
+    : `Create a KEY-TERM ACTIVE-RECALL version of this exact section. Preserve the full explanatory text and structure, but replace selected high-value terms, names, definitions' core phrases, formula components, and causal mechanisms with clear blank spans such as <span class="juxa-cloze" data-answer="mitosis">________</span>. Select a reasonable number of blanks, avoiding every-word clozes. Put the correct answer only in data-answer attributes. Retain equations/HTML and do not change meaning. Do not add facts.`;
+
+  const prompt = `You are a careful academic study-editor for "${noteTitle}".\nTASK: ${operationInstructions}\n\nSOURCE HTML (the only content scope):\n${selectedHtml}\n\nReturn a JSON object with exactly one field, "htmlContent", containing the transformed HTML. Keep the HTML well-formed. No markdown fences or explanation.`;
+  const result = await requestStudyJson(prompt, {
+    type: Type.OBJECT,
+    properties: { htmlContent: { type: Type.STRING } },
+    required: ["htmlContent"]
+  });
+  const html = String(result?.htmlContent || "").trim();
+  if (!html) throw new Error("The AI did not return transformed HTML.");
+  return html;
+}
+
+export async function generateAnkiStudyCards(
+  noteTitle: string,
+  selectedHtml: string,
+  count: number = 20
+): Promise<AnkiStudyCard[]> {
+  const safeCount = Math.max(5, Math.min(50, Math.round(count)));
+  const prompt = `You are an expert in evidence-based retrieval practice and Anki flashcard design.
+Create exactly ${safeCount} high-quality cards from the following selected study content in lesson "${noteTitle}".
+Card rules:
+- Keep every card grounded in the provided source; do not import outside facts.
+- Prefer atomic, one-fact or one-reasoning-step cards; one clear question per front.
+- Include definitions, conceptual distinctions, mechanisms, important assumptions, formulas and their interpretation, and key examples as source content supports.
+- Avoid vague prompts, duplicate cards, trivially worded cards, and overly broad essay questions.
+- Keep answers concise but sufficiently precise; preserve necessary qualifiers and equations.
+- Tags should include a short lesson/topic tag and useful concept tags (no spaces; use underscores).
+- Return JSON only, shaped as {"cards":[{"front":"...","back":"...","tags":["..."]}]}.
+\n\nSOURCE HTML CONTENT (exclusive scope):\n${selectedHtml}`;
+
+  const result = await requestStudyJson(prompt, {
+    type: Type.OBJECT,
+    properties: {
+      cards: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            front: { type: Type.STRING },
+            back: { type: Type.STRING },
+            tags: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["front", "back", "tags"]
+        }
+      }
+    },
+    required: ["cards"]
+  });
+  const cards = Array.isArray(result?.cards) ? result.cards : [];
+  if (!cards.length) throw new Error("The AI did not return any flashcards.");
+  return cards.slice(0, safeCount).map((card: any) => ({
+    front: String(card.front || "").trim(),
+    back: String(card.back || "").trim(),
+    tags: Array.isArray(card.tags) ? card.tags.map((tag: unknown) => String(tag).trim()).filter(Boolean) : []
+  })).filter((card: AnkiStudyCard) => card.front && card.back);
+}
+
 export async function askTutorAboutNote(
   noteTitle: string,
   noteContent: string,
