@@ -279,21 +279,25 @@ export default function App() {
           <div className="hidden min-w-0 max-w-[min(42vw,640px)] flex-1 items-center justify-center gap-2 overflow-hidden whitespace-nowrap text-xs font-bold text-white/50 font-mono lg:flex">
             <span className="shrink-0">Syllabus</span>
             <span className="shrink-0">/</span>
-            <span 
-              className={`hover:text-white cursor-pointer transition-colors ${!selectedThemeId ? 'text-white' : ''}`}
+            <button
+              type="button"
+              title={activeSubject.shortName}
+              className={`min-w-0 max-w-[34%] truncate text-left hover:text-white cursor-pointer transition-colors ${!selectedThemeId ? 'text-white' : ''}`}
               onClick={() => { setSelectedThemeId(null); setSelectedUnitId(null); }}
             >
-              <span className="min-w-0 truncate">{activeSubject.shortName}</span>
-            </span>
+              {activeSubject.shortName}
+            </button>
             {activeTheme && (
               <>
                 <span className="shrink-0">/</span>
-                <span 
-                  className={`hover:text-white cursor-pointer transition-colors ${!selectedUnitId ? 'text-white' : ''}`}
+                <button
+                  type="button"
+                  title={activeTheme.name}
+                  className={`min-w-0 max-w-[34%] truncate text-left hover:text-white cursor-pointer transition-colors ${!selectedUnitId ? 'text-white' : ''}`}
                   onClick={() => { setSelectedUnitId(null); }}
                 >
-                  <span className="min-w-0 truncate">{activeTheme.name}</span>
-                </span>
+                  {activeTheme.name}
+                </button>
                 {activeUnit && (
                   <>
                     <span className="shrink-0">/</span>
