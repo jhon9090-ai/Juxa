@@ -61,6 +61,7 @@ export default function App() {
   const [activeModelName, setActiveModelName] = useState("Gemini (Built-In)");
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [isOtherGeneratorOpen, setIsOtherGeneratorOpen] = useState(false);
+  const [recallExerciseOpen, setRecallExerciseOpen] = useState(false);
 
   // Dark Mode State with local persistence
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -305,6 +306,7 @@ export default function App() {
         )}
 
         <div className="flex items-center gap-1">
+          {enhancedNote && <button type="button" onClick={() => setRecallExerciseOpen(true)} className="d48 d66 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-bold transition-all hover:bg-white/20" title="Open the separate recall exercise"><Brain className="w-4 h-4" /><span className="hidden sm:inline">Recall</span></button>}
           {/* Theme Toggler */}
           <button
             type="button"
@@ -401,7 +403,7 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <ArticleViewer note={enhancedNote} onUpdateNote={setEnhancedNote} />
+              <ArticleViewer note={enhancedNote} onUpdateNote={setEnhancedNote} recallExerciseOpen={recallExerciseOpen} onCloseRecallExercise={() => setRecallExerciseOpen(false)} />
             </motion.div>
           ) : selectedUnitId && activeSubject && activeTheme && activeUnit ? (
             /* Selected Unit detail Workspace */
