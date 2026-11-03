@@ -2532,27 +2532,24 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
           {!companionLoading && !note.studyCompanion && !companionError && <p className="text-xs text-slate-500">Your review material will appear here when generated.</p>}
         </section>
 
-        {recallExerciseOpen && <div className="no-print fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Separate occlusion recall exercise">
-          <div className="w-full max-w-2xl max-h-[88vh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-5 text-slate-100 shadow-2xl md:p-7">
-            <div className="flex items-start justify-between gap-4">
-              <div><span className="text-[9px] font-black uppercase tracking-[.16em] text-sky-400">Separate practice space</span><h2 className="mt-1 text-2xl font-black">Occlusion recall</h2><p className="mt-1 text-xs text-slate-400">Generated from “{note.title}”. Your original note remains unchanged.</p></div>
-              <button type="button" onClick={onCloseRecallExercise} className="rounded-xl border border-slate-700 p-2 text-slate-300 hover:bg-slate-800" aria-label="Close recall exercise"><X className="h-5 w-5"/></button>
+        {recallExerciseOpen && <div className="no-print fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto bg-slate-950/75 p-3 backdrop-blur-md md:p-6" role="dialog" aria-modal="true" aria-label="Separate occlusion practice space">
+          <div className="my-2 w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-700 bg-white text-slate-900 shadow-2xl dark:bg-slate-950 dark:text-slate-100 md:my-4">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 md:px-7">
+              <div className="min-w-0"><span className="text-[9px] font-black uppercase tracking-[.16em] text-sky-500">Separate practice space</span><h2 className="mt-1 truncate text-xl font-black md:text-2xl">{note.title} · Occlusion practice</h2><p className="mt-1 text-xs text-slate-500">A formatted copy of your note. Click each covered area to reveal it.</p></div>
+              <button type="button" onClick={onCloseRecallExercise} className="shrink-0 rounded-xl border border-slate-300 p-2 text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Close practice space"><X className="h-5 w-5"/></button>
             </div>
-            {companionLoading && <div className="flex items-center gap-2 py-8 text-sm text-slate-300"><Loader2 className="h-4 w-4 animate-spin"/>Generating this note's recall exercise…</div>}
-            {companionError && <p className="mt-5 rounded-xl bg-rose-950/60 p-3 text-sm text-rose-200">{companionError}</p>}
-            {!companionLoading && !!note.studyCompanion?.occlusionItems?.length && <div className="mt-5 space-y-3">
-              <p className="text-xs text-slate-400">{note.studyCompanion.occlusionItems.length} prompts · Reveal each answer when ready</p>
-              {note.studyCompanion.occlusionItems.map((item,index)=><article key={index} className="rounded-2xl border border-slate-700 bg-slate-800/80 p-4">
-                <div className="text-[9px] font-black uppercase tracking-widest text-sky-400">Prompt {index+1}</div>
-                <p className="mt-2 text-sm leading-relaxed text-slate-100">{item.prompt}</p>
-                {revealedOcclusionItems.includes(index) ? <div className="mt-3 rounded-xl border border-emerald-700/60 bg-emerald-950/50 px-3 py-2 text-sm font-bold text-emerald-200">{item.answer}</div> : <button type="button" onClick={()=>setRevealedOcclusionItems(current=>[...current,index])} className="mt-3 rounded-lg bg-sky-700 px-3 py-2 text-xs font-bold text-white hover:bg-sky-600">Reveal answer</button>}
-              </article>)}
-              <button type="button" onClick={()=>setRevealedOcclusionItems([])} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800">Reset all answers</button>
+            {practiceLoading && <div className="flex items-center gap-3 px-6 py-10 text-sm text-slate-500"><Loader2 className="h-5 w-5 animate-spin"/>Preparing an occluded copy of the note…</div>}
+            {practiceError && <div className="m-5 rounded-xl border border-rose-300/40 bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-200">{practiceError}<p className="mt-1 text-xs opacity-80">Your original note has not been changed.</p></div>}
+            {!practiceLoading && !practiceError && practiceHtml && <div className="max-h-[calc(100vh-150px)] overflow-y-auto px-5 py-6 md:px-9 md:py-8">
+              <div key={practiceRevision} className="juxa-note-container prose prose-slate dark:prose-invert mx-auto max-w-none">
+                {parse(practiceHtml.replace(/\[\[MCQ:([\w-]+)\]\]/g, '<mcq-placeholder data-id="$1"></mcq-placeholder>').replace(/(?<!\\)\$\$([\s\S]+?)(?<!\\)\$\$/g, '<div class="d101">$1</div>').replace(/(?<!\\)\$([^\$]+?)(?<!\\)\$/g, '<span class="katex">$1</span>'), finalOptions)}
+              </div>
+              <div className="mt-8 flex justify-end border-t border-slate-200 pt-4 dark:border-slate-800">
+                <button type="button" onClick={()=>setPracticeRevision(value=>value+1)} className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900">Reset revealed areas</button>
+              </div>
             </div>}
-            {!companionLoading && !companionError && !note.studyCompanion?.occlusionItems?.length && <p className="mt-6 text-sm text-slate-400">No recall prompts are available for this note yet.</p>}
           </div>
         </div>}
-
         {showAnkiCards && (
           <div className="no-print fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Generated Anki flashcards">
             <div className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 p-5 md:p-7 shadow-2xl">
