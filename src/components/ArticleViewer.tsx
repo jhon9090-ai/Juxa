@@ -120,6 +120,11 @@ export function cleanLaTeX(math: string): string {
   return cleaned;
 }
 
+const ClozeReveal: React.FC<{ answer: string }> = ({ answer }) => {
+  const [revealed, setRevealed] = useState(false);
+  return <span role="button" tabIndex={0} aria-label={revealed ? "Hide answer" : "Reveal answer"} onClick={() => setRevealed(value => !value)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setRevealed(value => !value); } }} className={`juxa-cloze inline-block rounded px-1.5 py-0.5 border-b-2 border-indigo-500 cursor-pointer ${revealed ? "bg-indigo-100 dark:bg-indigo-900/40 text-slate-900 dark:text-slate-100" : "bg-indigo-50 dark:bg-indigo-950/30 text-transparent select-none"}`}>{revealed ? answer : "________"}</span>;
+};
+
 function normalizeStudyHeading(value: string): string {
   return value.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, " ").trim().toLowerCase();
 }
@@ -1378,6 +1383,9 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   const finalOptions: HTMLReactParserOptions = {
     replace: (domNode) => {
       if (domNode instanceof Element) {
+        if (domNode.name === "span" && domNode.attribs?.class?.includes("juxa-cloze")) {
+          return <ClozeReveal answer={domNode.attribs["data-answer"] || ""} />;
+        }
         if (domNode.name === 'continue-placeholder') {
           return (
             <span className="inline-flex items-center ml-2 select-none align-baseline">
@@ -2070,6 +2078,9 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
         <Focus className="w-4 h-4" /> {isZenMode ? "Exit Zen" : "Zen"}
       </button>
       <style>{`
+        .juxa-zen-mode .d0 { padding-top: 1.5rem !important; padding-bottom: 3rem !important; }
+        .juxa-zen-mode .juxa-note-container { max-width: 850px; margin-left: auto; margin-right: auto; font-size: 1.05rem; line-height: 1.85; }
+        .juxa-note-container mark[data-juxa-annotation] { cursor: help; }
         .juxa-note-container.is-folded > *:not(h1):not(h2):not(h3) {
           display: none !important;
         }
