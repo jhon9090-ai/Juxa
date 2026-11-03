@@ -44,7 +44,7 @@ export function getDepthWordBudget(depth: number): { target: number; min: number
 
 export function getDepthFromWordTarget(wordTarget: number): number {
   const target = Math.max(600, Math.min(15000, Number.isFinite(wordTarget) ? wordTarget : 3000));
-  return Math.round((Math.log(target / 600) / Math.log(15000 / 600)) * 100);
+  return (Math.log(target / 600) / Math.log(15000 / 600)) * 100;
 }
 
 export function getDepthInstructions(depth: number): string {
