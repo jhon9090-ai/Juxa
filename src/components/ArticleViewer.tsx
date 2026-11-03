@@ -4,15 +4,15 @@ import parse from 'html-react-parser';
 import katex from 'katex';
 import { SafeMath } from './SafeMath';
 import { MCQComponent } from './MCQComponent';
-import { EnhancedNote, generateExamQuestions, MCQ, generateBespokeExamSections, BespokeSection, fixAllLaTeXInDocument, healDocumentFormulaWithAI, fixLaTeXEquation, continueNote } from '../services/geminiService';
-import { saveNotebook, EnhancedNotebook } from '../services/db';
+import { EnhancedNote, generateExamQuestions, MCQ, generateBespokeExamSections, BespokeSection, fixAllLaTeXInDocument, healDocumentFormulaWithAI, fixLaTeXEquation, continueNote, transformStudyContent, generateAnkiStudyCards, AnkiStudyCard } from '../services/geminiService';
+import { saveNotebook, EnhancedNotebook, StudyAnnotation } from '../services/db';
 import { SYLLABUS } from '../data/syllabus';
 import { NoteViewerErrorBoundary } from './NoteViewerErrorBoundary';
 import { 
   Printer, FileDown, RefreshCw, GraduationCap, Award, 
   ChevronRight, ArrowLeft, Brain, Check, X, CheckSquare, 
   Play, BookOpen, AlertCircle, HelpCircle, Trophy, BarChart2,
-  ChevronLeft, FastForward, Clock, Sparkles
+  ChevronLeft, FastForward, Clock, Sparkles, Highlighter, MessageSquare, Focus, BrainCircuit, Download, Loader2, WandSparkles
 } from 'lucide-react';
 
 function getHeaderSectionsFromHtml(html: string, fallbackTitle: string): BespokeSection[] {
@@ -120,6 +120,83 @@ export function cleanLaTeX(math: string): string {
   return cleaned;
 }
 
+function normalizeStudyHeading(value: string): string {
+  return value.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\\s+/g, " ").trim().toLowerCase();
+}
+
+function getStudyHeadingScopes(html: string): string[] {
+  const regex = /<h([2-3])[^>]*>([\\s\\S]*?)<\\/h\\1>/gi;
+  const titles: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(html)) !== null) {
+    const title = match[2].replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\\s+/g, " ").trim();
+    if (title && !titles.includes(title)) titles.push(title);
+  }
+  return titles;
+}
+
+function extractStudyScope(html: string, scopeTitle: string): string {
+  if (scopeTitle === "__all__") return html;
+  const regex = /<h([2-6])[^>]*>([\\s\\S]*?)<\\/h\\1>/gi;
+  const headings: Array<{ start: number; level: number; title: string }> = [];
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(html)) !== null) {
+    headings.push({ start: match.index, level: Number(match[1]), title: match[2].replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\\s+/g, " ").trim() });
+  }
+  const target = normalizeStudyHeading(scopeTitle);
+  const index = headings.findIndex(item => normalizeStudyHeading(item.title) === target);
+  if (index < 0) return html;
+  const chosen = headings[index];
+  const next = headings.slice(index + 1).find(item => item.level <= chosen.level);
+  return html.slice(chosen.start, next?.start ?? html.length);
+}
+
+function replaceStudyScope(html: string, scopeTitle: string, replacement: string): string {
+  if (scopeTitle === "__all__") return replacement;
+  const regex = /<h([2-6])[^>]*>([\\s\\S]*?)<\\/h\\1>/gi;
+  const headings: Array<{ start: number; level: number; title: string }> = [];
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(html)) !== null) {
+    headings.push({ start: match.index, level: Number(match[1]), title: match[2].replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\\s+/g, " ").trim() });
+  }
+  const target = normalizeStudyHeading(scopeTitle);
+  const index = headings.findIndex(item => normalizeStudyHeading(item.title) === target);
+  if (index < 0) return html;
+  const chosen = headings[index];
+  const next = headings.slice(index + 1).find(item => item.level <= chosen.level);
+  const end = next?.start ?? html.length;
+  return html.slice(0, chosen.start) + replacement + html.slice(end);
+}
+
+function wrapSavedAnnotation(root: HTMLElement, annotation: StudyAnnotation): void {
+  if (!annotation.quote.trim()) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      if (!parent || parent.closest("[data-juxa-annotation]")) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    const text = node.textContent || "";
+    const index = text.indexOf(annotation.quote);
+    if (index < 0) continue;
+    const range = document.createRange();
+    range.setStart(node, index);
+    range.setEnd(node, index + annotation.quote.length);
+    const wrapper = document.createElement("mark");
+    wrapper.dataset.juxaAnnotation = annotation.id;
+    wrapper.title = annotation.comment || "Saved highlight";
+    wrapper.style.backgroundColor = annotation.color === "blue" ? "#bfdbfe" : annotation.color === "pink" ? "#fbcfe8" : "#fef08a";
+    wrapper.style.color = "inherit";
+    wrapper.style.borderRadius = "0.2em";
+    wrapper.style.padding = "0 0.04em";
+    range.surroundContents(wrapper);
+    break;
+  }
+}
+
 interface ArticleViewerProps {
   note: EnhancedNotebook;
   onUpdateNote?: (note: EnhancedNotebook) => void;
@@ -156,6 +233,17 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   const [isFolded, setIsFolded] = useState(false);
   const [historyStack, setHistoryStack] = useState<string[]>([]);
   const [isContinuing, setIsContinuing] = useState(false);
+  const [isZenMode, setIsZenMode] = useState(false);
+  const [selectedStudyScope, setSelectedStudyScope] = useState("__all__");
+  const [studyToolBusy, setStudyToolBusy] = useState<"highlights" | "cloze" | "anki" | null>(null);
+  const [studyToolError, setStudyToolError] = useState<string | null>(null);
+  const [ankiCards, setAnkiCards] = useState<AnkiStudyCard[]>([]);
+  const [showAnkiCards, setShowAnkiCards] = useState(false);
+  const [selectionText, setSelectionText] = useState("");
+  const [commentDraft, setCommentDraft] = useState("");
+  const [showCommentEditor, setShowCommentEditor] = useState(false);
+  const articleBodyRef = useRef<HTMLDivElement>(null);
+  const selectedRangeRef = useRef<Range | null>(null);
 
   // Load persistent progress on note change
   useEffect(() => {
@@ -196,6 +284,11 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     setEditTitle(note.title);
     setEditContent(note.htmlContent);
     setIsFolded(false);
+    setIsZenMode(false);
+    setSelectedStudyScope("__all__");
+    setShowCommentEditor(false);
+    setSelectionText("");
+    selectedRangeRef.current = null;
   }, [note.title, note.htmlContent]);
 
   const saveProgress = (
@@ -892,6 +985,110 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     } catch (err: any) {
       alert("Failed to save edited note: " + (err?.message || err));
     }
+  };
+
+  const persistStudyAnnotation = async (comment: string, color: StudyAnnotation["color"]) => {
+    const quote = selectionText.trim();
+    if (!quote || !selectedRangeRef.current || !articleBodyRef.current) return;
+    const annotation: StudyAnnotation = {
+      id: `annotation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      quote,
+      comment: comment.trim(),
+      color,
+      createdAt: Date.now()
+    };
+    try {
+      const range = selectedRangeRef.current;
+      if (range.commonAncestorContainer && articleBodyRef.current.contains(range.commonAncestorContainer)) {
+        const mark = document.createElement("mark");
+        mark.dataset.juxaAnnotation = annotation.id;
+        mark.title = annotation.comment || "Saved highlight";
+        mark.style.backgroundColor = color === "blue" ? "#bfdbfe" : color === "pink" ? "#fbcfe8" : "#fef08a";
+        mark.style.color = "inherit";
+        mark.style.borderRadius = "0.2em";
+        mark.style.padding = "0 0.04em";
+        mark.style.cursor = "help";
+        mark.style.textDecoration = annotation.comment ? "underline dotted" : "none";
+        mark.style.textUnderlineOffset = "3px";
+        mark.appendChild(range.extractContents());
+        range.insertNode(mark);
+      }
+      const updatedNotebook = { ...note, annotations: [...(note.annotations || []), annotation] };
+      await saveNotebook(updatedNotebook);
+      onUpdateNote?.(updatedNotebook);
+      setSelectionText("");
+      selectedRangeRef.current = null;
+      setCommentDraft("");
+      setShowCommentEditor(false);
+      window.getSelection()?.removeAllRanges();
+    } catch (error) {
+      setStudyToolError(error instanceof Error ? error.message : "Unable to save this annotation.");
+    }
+  };
+
+  const captureTextSelection = () => {
+    const selection = window.getSelection();
+    const text = selection?.toString().trim() || "";
+    const range = selection && selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+    if (!text || !range || !articleBodyRef.current?.contains(range.commonAncestorContainer)) {
+      setSelectionText("");
+      selectedRangeRef.current = null;
+      return;
+    }
+    setSelectionText(text);
+    selectedRangeRef.current = range;
+    setShowCommentEditor(false);
+  };
+
+  useEffect(() => {
+    const root = articleBodyRef.current;
+    if (!root) return;
+    (note.annotations || []).forEach(annotation => {
+      if (!root.querySelector(`[data-juxa-annotation="${annotation.id}"]`)) wrapSavedAnnotation(root, annotation);
+    });
+  }, [note.id, note.annotations, note.htmlContent]);
+
+  const handleStudyTransformation = async (operation: "highlights" | "cloze") => {
+    setStudyToolBusy(operation);
+    setStudyToolError(null);
+    try {
+      const selectedHtml = extractStudyScope(note.htmlContent, selectedStudyScope);
+      const transformedHtml = await transformStudyContent(note.title, selectedHtml, operation);
+      const updatedNotebook = { ...note, htmlContent: replaceStudyScope(note.htmlContent, selectedStudyScope, transformedHtml) };
+      await saveNotebook(updatedNotebook);
+      onUpdateNote?.(updatedNotebook);
+    } catch (error) {
+      setStudyToolError(error instanceof Error ? error.message : "AI study transformation failed.");
+    } finally {
+      setStudyToolBusy(null);
+    }
+  };
+
+  const handleGenerateAnkiCards = async () => {
+    setStudyToolBusy("anki");
+    setStudyToolError(null);
+    try {
+      const selectedHtml = extractStudyScope(note.htmlContent, selectedStudyScope);
+      const cards = await generateAnkiStudyCards(note.title, selectedHtml, 20);
+      setAnkiCards(cards);
+      setShowAnkiCards(true);
+    } catch (error) {
+      setStudyToolError(error instanceof Error ? error.message : "Anki card generation failed.");
+    } finally {
+      setStudyToolBusy(null);
+    }
+  };
+
+  const exportAnkiTsv = () => {
+    const escapeField = (value: string) => value.replace(/\\t/g, " ").replace(/\\r?\\n/g, "<br>").replace(/"/g, '""');
+    const rows = ankiCards.map(card => [card.front, card.back, card.tags.join(" ")].map(escapeField).map(value => `"${value}"`).join("\\t"));
+    const blob = new Blob(["#separator:tab\\n#html:true\\n#tags column:3\\n" + rows.join("\\n")], { type: "text/tab-separated-values;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${note.title.replace(/[^a-z0-9]+/gi, "_")}_anki.tsv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   // Reading time calculator: avg adult reads at ~200 WPM
