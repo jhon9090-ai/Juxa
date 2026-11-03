@@ -2266,3 +2266,30 @@ html:not(.dark) .fixed.right-0.top-0.h-full.w-full.max-w-md .group.p-4 { backgro
 .juxa-depth-budget{padding:12px 14px;border:1px solid #3a536b;border-radius:12px;background:linear-gradient(135deg,rgba(53,111,159,.2),rgba(35,64,82,.16))}
 .juxa-depth-budget .text-indigo-600{color:#8dc5f0!important}.juxa-depth-budget .text-slate-800{color:#e5edf5!important}.juxa-depth-budget input{border:1px solid #48627c!important;border-radius:8px!important;background:#17212c!important;color:#b8dcf7!important}
 @media(max-width:640px){.juxa-tool-button{padding:0 8px}.juxa-selection-menu{min-width:225px}.juxa-selection-comment{min-width:min(280px,calc(100vw - 32px))}.juxa-depth-card{padding:15px;border-radius:18px}}
+
+
+/* Expandable AI study companion and independent occlusion workspace. */
+.juxa-selection-menu{overflow:visible}
+.juxa-topic-trigger{display:flex!important;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:9px 10px!important;border:1px solid #3a4655!important;border-radius:9px!important;background:#171d26!important;color:#e4ebf4!important;text-align:left;font-size:11px;font-weight:700}
+.juxa-topic-trigger span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.juxa-topic-options{display:grid;gap:3px;max-height:220px;overflow-y:auto;margin:5px 0 8px;padding:5px;border:1px solid #354151;border-radius:10px;background:#171d26;box-shadow:0 10px 24px rgba(0,0,0,.28)}
+.juxa-topic-options button{width:100%;padding:8px 9px;border-radius:7px;background:transparent;color:#cbd6e3;text-align:left;font-size:10px;line-height:1.35}
+.juxa-topic-options button:hover,.juxa-topic-options button.active{background:#2c4054;color:#9fd0f7}
+.juxa-companion-panel{overflow:hidden;border:1px solid var(--juxa-line);border-radius:16px;background:var(--juxa-surface);box-shadow:0 5px 18px rgba(0,0,0,.07)}
+.juxa-companion-panel>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 17px;cursor:pointer;list-style:none;color:var(--juxa-ink);font-size:13px;font-weight:800}
+.juxa-companion-panel>summary::-webkit-details-marker{display:none}
+.juxa-companion-panel>summary>span{display:inline-flex;align-items:center;gap:9px}
+.juxa-companion-panel[open]>summary{border-bottom:1px solid var(--juxa-line)}
+.juxa-details-chevron{transition:transform .18s ease;color:var(--juxa-muted)}
+.juxa-companion-panel[open] .juxa-details-chevron{transform:rotate(90deg)}
+.juxa-companion-content{padding:16px 18px;color:var(--juxa-ink);font-size:13px;line-height:1.75}
+.juxa-keyword-chip{display:inline-flex;padding:6px 10px;border:1px solid var(--juxa-line);border-radius:999px;background:var(--juxa-paper);color:var(--juxa-ink);font-size:11px;font-weight:700}
+.dark .juxa-companion-panel{background:#20242d;border-color:#303642}
+.dark .juxa-companion-panel>summary{color:#e6e9ef}
+.dark .juxa-companion-content{color:#cbd5e1}
+.dark .juxa-keyword-chip{background:#191d25;border-color:#343b48;color:#d6e0ec}
+html:not(.dark) .juxa-topic-trigger{background:#fbfbfe!important;border-color:#e2e2ed!important;color:#24263b!important}
+html:not(.dark) .juxa-topic-options{background:#fff;border-color:#e2e2ed;box-shadow:0 10px 24px rgba(39,35,82,.12)}
+html:not(.dark) .juxa-topic-options button{color:#42445a}
+html:not(.dark) .juxa-topic-options button:hover,html:not(.dark) .juxa-topic-options button.active{background:#efedff;color:#5144bf}
+@media(max-width:640px){.juxa-companion-panel>summary{padding:13px 14px}.juxa-companion-content{padding:13px 14px}}
