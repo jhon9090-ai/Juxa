@@ -193,7 +193,8 @@ function wrapSavedAnnotation(root: HTMLElement, annotation: StudyAnnotation): vo
     const wrapper = document.createElement("mark");
     wrapper.dataset.juxaAnnotation = annotation.id;
     wrapper.title = annotation.comment || "Saved highlight";
-    wrapper.style.backgroundColor = annotation.color === "blue" ? "#bfdbfe" : annotation.color === "pink" ? "#fbcfe8" : "#fef08a";
+    wrapper.dataset.juxaComment = annotation.comment ? "true" : "false";
+    wrapper.style.backgroundColor = annotation.comment ? "transparent" : annotation.color === "blue" ? "rgba(147,197,253,0.13)" : annotation.color === "pink" ? "rgba(249,168,212,0.13)" : "rgba(253,224,71,0.15)";
     wrapper.style.color = "inherit";
     wrapper.style.borderRadius = "0.2em";
     wrapper.style.padding = "0 0.04em";
@@ -235,6 +236,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
 
   // Editor and folding states
   const [isEditing, setIsEditing] = useState(false);
+  const [inlineEditing, setInlineEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(note.title);
   const [editContent, setEditContent] = useState(note.htmlContent);
   const [isFolded, setIsFolded] = useState(false);
@@ -301,6 +303,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     setErrorMessage(null);
     setCustomRoadmapSuccess(null);
     setIsEditing(false);
+    setInlineEditing(false);
     setEditTitle(note.title);
     setEditContent(note.htmlContent);
     setIsFolded(false);
@@ -362,6 +365,17 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
         setIsEditing(prev => !prev);
       }
       
+      // Ctrl + Shift + E -> toggle direct, in-place note editing (no editor window).
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === "KeyE") {
+        e.preventDefault();
+        if (inlineEditing) {
+          window.dispatchEvent(new CustomEvent("juxa:save-inline-edit"));
+        } else {
+          setInlineEditing(true);
+        }
+        return;
+      }
+
       // Ctrl + Shift + F -> Fold headings
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === "KeyF") {
         e.preventDefault();
@@ -377,7 +391,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [inlineEditing]);
 
   // Global Undo (Ctrl + Z) Event Listener
   useEffect(() => {
@@ -1005,16 +1019,23 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     }
   };
 
-  // Save edits handler
+  // Save edits from either the legacy diagnostics editor or the inline Obsidian-style editor.
   const handleSaveEdits = async () => {
     try {
+      const contentToSave = inlineEditing && articleBodyRef.current
+        ? (() => {
+            const clone = articleBodyRef.current!.cloneNode(true) as HTMLElement;
+            clone.querySelectorAll("mark[data-juxa-annotation]").forEach(mark => mark.replaceWith(...Array.from(mark.childNodes)));
+            return clone.innerHTML;
+          })()
+        : editContent;
       // Back up previous state to history
       setHistoryStack(prev => [...prev, JSON.stringify({ htmlContent: note.htmlContent, mcqs: note.mcqs })]);
 
       const updatedNotebook = {
         ...note,
-        title: editTitle,
-        htmlContent: editContent,
+        title: editTitle || note.title,
+        htmlContent: contentToSave,
       } as EnhancedNotebook;
 
       // Persist changes offline
@@ -1026,12 +1047,20 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
       }
 
       setIsEditing(false);
-      setCustomRoadmapSuccess("Edits applied live successfully!");
+      setInlineEditing(false);
+      setEditContent(contentToSave);
+      setCustomRoadmapSuccess("Edits saved successfully.");
       setTimeout(() => setCustomRoadmapSuccess(null), 3000);
     } catch (err: any) {
       alert("Failed to save edited note: " + (err?.message || err));
     }
   };
+
+  useEffect(() => {
+    const saveInline = () => { if (inlineEditing) void handleSaveEdits(); };
+    window.addEventListener("juxa:save-inline-edit", saveInline);
+    return () => window.removeEventListener("juxa:save-inline-edit", saveInline);
+  }, [inlineEditing, note, editContent]);
 
   const persistStudyAnnotation = async (comment: string, color: StudyAnnotation["color"]) => {
     const quote = selectionText.trim();
@@ -1049,7 +1078,8 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
         const mark = document.createElement("mark");
         mark.dataset.juxaAnnotation = annotation.id;
         mark.title = annotation.comment || "Saved highlight";
-        mark.style.backgroundColor = color === "blue" ? "#bfdbfe" : color === "pink" ? "#fbcfe8" : "#fef08a";
+        mark.dataset.juxaComment = annotation.comment ? "true" : "false";
+        mark.style.backgroundColor = annotation.comment ? "transparent" : color === "blue" ? "rgba(147,197,253,0.13)" : color === "pink" ? "rgba(249,168,212,0.13)" : "rgba(253,224,71,0.15)";
         mark.style.color = "inherit";
         mark.style.borderRadius = "0.2em";
         mark.style.padding = "0 0.04em";
@@ -1073,11 +1103,26 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   };
 
   const removeStudyAnnotation = async (annotationId: string) => {
-    const updatedNotebook = { ...note, annotations: (note.annotations || []).filter(annotation => annotation.id !== annotationId) };
-    await saveNotebook(updatedNotebook);
-    const mark = articleBodyRef.current?.querySelector(`[data-juxa-annotation="${annotationId}"]`);
-    if (mark?.parentNode) mark.replaceWith(...Array.from(mark.childNodes));
-    onUpdateNote?.(updatedNotebook);
+    try {
+      const updatedNotebook = { ...note, annotations: (note.annotations || []).filter(annotation => annotation.id !== annotationId) };
+      await saveNotebook(updatedNotebook);
+      const mark = articleBodyRef.current?.querySelector(`[data-juxa-annotation="${annotationId}"]`);
+      if (mark?.parentNode) mark.replaceWith(...Array.from(mark.childNodes));
+      onUpdateNote?.(updatedNotebook);
+    } catch (error) {
+      setStudyToolError(error instanceof Error ? error.message : "Unable to remove this annotation.");
+    }
+  };
+
+  const removeAllStudyAnnotations = async () => {
+    try {
+      const updatedNotebook = { ...note, annotations: [] };
+      await saveNotebook(updatedNotebook);
+      articleBodyRef.current?.querySelectorAll("[data-juxa-annotation]").forEach(mark => mark.replaceWith(...Array.from(mark.childNodes)));
+      onUpdateNote?.(updatedNotebook);
+    } catch (error) {
+      setStudyToolError(error instanceof Error ? error.message : "Unable to remove saved highlights and comments.");
+    }
   };
 
   const captureTextSelection = () => {
@@ -1123,6 +1168,8 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
 
   useEffect(() => {
     const clearWhenDeselected = () => {
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (activeElement?.closest(".juxa-selection-comment")) return;
       if (!(window.getSelection()?.toString().trim())) {
         setSelectionText("");
         selectedRangeRef.current = null;
@@ -2218,12 +2265,12 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
         
         {/* Navigation Breadcrumb */}
         {!isZenMode && <div className="d71 mb-8 no-print">
-          <ul className="d72 flex items-center gap-2 text-sm text-slate-500">
-            <li className="d73 cursor-pointer select-none">Notes</li>
-            <li className="d73">›</li>
-            <li className="d116 text-slate-400 capitalize">{subjectId}</li>
-            <li className="d73">›</li>
-            <li className="d73 text-slate-900 dark:text-slate-100 font-medium">{note.title}</li>
+          <ul className="d72 juxa-note-breadcrumb flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500">
+            <li className="d73 min-w-0 max-w-[20%] truncate cursor-pointer select-none">Notes</li>
+            <li className="d73 shrink-0" aria-hidden="true">›</li>
+            <li className="d116 min-w-0 max-w-[22%] truncate text-slate-400 capitalize">{subjectId}</li>
+            <li className="d73 shrink-0" aria-hidden="true">›</li>
+            <li className="d73 min-w-0 flex-1 truncate text-slate-900 dark:text-slate-100 font-medium" title={note.title}>{note.title}</li>
           </ul>
         </div>}
 
@@ -2367,13 +2414,13 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
 
         {/* Contextual study tools appear only while lesson text is selected. */}
         {selectionText && selectionPosition && (
-          <div className="no-print juxa-selection-tools" style={{ position:"fixed", top:selectionPosition.top, left:selectionPosition.left, transform:"translateX(-50%)", zIndex:120 }} onMouseDown={event=>event.preventDefault()}>
-            <div className="juxa-selection-toolbar">
+          <div className="no-print juxa-selection-tools" style={{ position:"fixed", top:selectionPosition.top, left:selectionPosition.left, transform:"translateX(-50%)", zIndex:120 }}>
+            <div className="juxa-selection-toolbar" onMouseDown={event=>event.preventDefault()}>
               <button type="button" onClick={()=>persistStudyAnnotation("", "yellow")} title="Manually highlight selected text in yellow (no AI)" className="juxa-tool-button juxa-tool-primary"><Highlighter className="w-4 h-4"/><span>Manual highlight</span></button><button type="button" onClick={()=>persistStudyAnnotation("", "blue")} title="Manual blue highlight" className="juxa-tool-icon"><span className="h-3.5 w-3.5 rounded-sm border border-white/40 bg-sky-300"/></button><button type="button" onClick={()=>persistStudyAnnotation("", "pink")} title="Manual pink highlight" className="juxa-tool-icon"><span className="h-3.5 w-3.5 rounded-sm border border-white/40 bg-pink-300"/></button>
               <button type="button" disabled={studyToolBusy!==null} onClick={handleGenerateAnkiCards} title="Create Anki cards from selected text" className="juxa-tool-button">{studyToolBusy==="anki"?<Loader2 className="w-4 h-4 animate-spin"/>:<Download className="w-4 h-4"/>}<span>Anki</span></button>
               <button type="button" onClick={()=>setShowMoreStudyTools(v=>!v)} aria-expanded={showMoreStudyTools} title="More study tools" className="juxa-tool-icon"><MoreHorizontal className="w-5 h-5"/></button>
             </div>
-            {showMoreStudyTools && <div className="juxa-selection-menu">
+            {showMoreStudyTools && <div className="juxa-selection-menu" onMouseDown={event=>event.preventDefault()}>
               <div className="juxa-selection-menu-label">More study tools</div>
               <button type="button" onClick={()=>{setShowCommentEditor(true);setShowMoreStudyTools(false);}}><MessageSquare className="w-4 h-4"/>Add a comment</button>
               <button type="button" disabled={studyToolBusy!==null} onClick={()=>handleStudyTransformation("highlights")}><WandSparkles className="w-4 h-4"/>Highlight key information in topic</button>
@@ -2403,12 +2450,35 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
           <p>{definitionLoading?"Looking up definition…":wordDefinition.definition}</p><span>Quick definition</span>
         </div>}
         {studyToolError && !selectionText && <p className="no-print mb-4 rounded-lg bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-xs font-bold text-rose-600">{studyToolError}</p>}
+        {inlineEditing && <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-400/30 bg-sky-400/5 px-3 py-2 text-xs text-sky-700 dark:text-sky-300">
+          <span className="font-bold">Inline editing is on — edit the note directly. Press Ctrl + Shift + E again to save.</span>
+          <span className="font-mono text-[10px] opacity-75">No separate editor window</span>
+        </div>}
         {/* Notebook Body Content */}
         <NoteViewerErrorBoundary rawHtml={processedHtml} onHeal={handleFixAllLaTeX}>
-          <div ref={articleBodyRef} onMouseUp={captureTextSelection} onTouchEnd={captureTextSelection} className={`juxa-note-container prose prose-slate dark:prose-invert max-w-none ${isFolded ? 'is-folded' : ''}`}>
+          <div
+            ref={articleBodyRef}
+            onMouseUp={captureTextSelection}
+            onTouchEnd={captureTextSelection}
+            contentEditable={inlineEditing}
+            suppressContentEditableWarning
+            spellCheck={inlineEditing}
+            className={`juxa-note-container prose prose-slate dark:prose-invert max-w-none ${isFolded ? 'is-folded' : ''} ${inlineEditing ? 'juxa-inline-editing' : ''}`}
+          >
             {parse(processedHtml, finalOptions)}
           </div>
         </NoteViewerErrorBoundary>
+
+        {!!note.annotations?.length && <section className="no-print mx-auto mt-6 max-w-4xl rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div><h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">Your highlights & comments</h3><p className="mt-0.5 text-[11px] text-slate-500">{note.annotations.length} saved addition{note.annotations.length === 1 ? "" : "s"} on this note</p></div>
+            <button type="button" onClick={removeAllStudyAnnotations} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300/50 px-2.5 py-1.5 text-[10px] font-bold text-rose-600 hover:bg-rose-500/10 dark:border-rose-900/60 dark:text-rose-300"><Trash2 className="h-3.5 w-3.5"/>Remove all</button>
+          </div>
+          <ul className="space-y-2">{note.annotations.map(annotation=><li key={annotation.id} className="flex items-start justify-between gap-3 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-950">
+            <div className="min-w-0"><p className="truncate text-xs font-bold text-slate-700 dark:text-slate-200">“{annotation.quote}”</p>{annotation.comment && <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-500 dark:text-slate-400">{annotation.comment}</p>}<span className="mt-1 block text-[9px] font-semibold uppercase tracking-wider text-slate-400">{annotation.comment ? "Comment" : "Highlight"} · {new Date(annotation.createdAt).toLocaleDateString()}</span></div>
+            <button type="button" onClick={()=>removeStudyAnnotation(annotation.id)} aria-label={annotation.comment ? "Remove comment" : "Remove highlight"} title={annotation.comment ? "Remove comment" : "Remove highlight"} className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-500"><Trash2 className="h-4 w-4"/></button>
+          </li>)}</ul>
+        </section>}
 
         {/* AI-generated study companion is appended as a separate, collapsible section. */}
         <section className="no-print juxa-study-companion mt-10 mx-auto max-w-4xl space-y-3">
