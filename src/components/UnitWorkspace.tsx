@@ -343,7 +343,12 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
 
       <form onSubmit={handleFormSubmit} className="space-y-6">
         {/* Dynamic Depth Slider */}
-        <div className="bg-indigo-50/40 border border-indigo-100/80 rounded-3xl p-5 shadow-sm">
+        <style>{`
+          .juxa-depth-slider{appearance:none;height:7px;border-radius:999px;background:linear-gradient(90deg,#526b84 0%,#5b9bd4 50%,#79c7b2 100%);outline:none}
+          .juxa-depth-slider::-webkit-slider-thumb{appearance:none;width:20px;height:20px;border-radius:50%;background:#e8f4ff;border:4px solid #559bd7;box-shadow:0 0 0 5px rgba(85,155,215,.15),0 3px 10px rgba(0,0,0,.3);cursor:grab}
+          .juxa-depth-slider::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#e8f4ff;border:4px solid #559bd7;box-shadow:0 0 0 5px rgba(85,155,215,.15),0 3px 10px rgba(0,0,0,.3);cursor:grab}
+        `}</style>
+        <div className="juxa-depth-card">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Sliders className="w-4 h-4 text-indigo-600 animate-pulse" />
@@ -363,7 +368,7 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
               max="100"
               value={depth}
               onChange={(e) => { const nextDepth = Number(e.target.value); setDepth(nextDepth); setCustomWordTarget(String(getDepthWordBudget(nextDepth).target)); }}
-              className="w-full h-2 bg-indigo-100/60 rounded-lg appearance-none cursor-pointer accent-indigo-600 focus:outline-none"
+              className="juxa-depth-slider w-full cursor-pointer"
             />
             
             <div className="flex justify-between text-[10px] text-slate-400 font-extrabold font-mono uppercase tracking-wide px-1">
@@ -372,7 +377,7 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
               <span>Very In-Depth</span>
             </div>
 
-            <div className="bg-white border border-indigo-50/60 rounded-2xl p-3.5 shadow-sm mt-3">
+            <div className="juxa-depth-detail mt-3">
               <div className="text-xs font-black text-slate-800 flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse"></div>
                 {getDepthDescription(depth).label}
@@ -380,7 +385,7 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
               <p className="text-xs text-slate-500 leading-relaxed mt-1">
                 {getDepthDescription(depth).desc}
               </p>
-              <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/70 px-3.5 py-3">
+              <div className="juxa-depth-budget mt-3">
                 <div className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 font-mono">Calculated AI output restriction</div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-black text-slate-800">
                   <label htmlFor="depth-word-target">Target words</label>
