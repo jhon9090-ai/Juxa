@@ -250,6 +250,11 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   const articleBodyRef = useRef<HTMLDivElement>(null);
   const selectedRangeRef = useRef<Range | null>(null);
 
+  useEffect(() => {
+    document.body.classList.toggle("juxa-zen-active", isZenMode);
+    return () => document.body.classList.remove("juxa-zen-active");
+  }, [isZenMode]);
+
   // Load persistent progress on note change
   useEffect(() => {
     examRequestIdRef.current += 1;
@@ -2046,7 +2051,9 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
               <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl max-h-[700px] overflow-y-auto shadow-md text-left scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-800">
       <style>{`
                   /* Match exactly standard layout folding effects */
-                  .juxa-zen-mode .d0 { padding-top: 1.5rem !important; padding-bottom: 3rem !important; }
+                  body.juxa-zen-active header.d8 { display: none !important; }
+        body.juxa-zen-active main { padding-top: 0 !important; }
+        .juxa-zen-mode .d0 { padding-top: 1.5rem !important; padding-bottom: 3rem !important; }
         .juxa-zen-mode .juxa-note-container { max-width: 850px; margin-left: auto; margin-right: auto; font-size: 1.05rem; line-height: 1.85; }
         .juxa-note-container .juxa-cloze { display: inline-block; min-width: 5em; border-bottom: 2px solid #6366f1; color: transparent; border-radius: 2px; background: rgba(99,102,241,.08); cursor: pointer; user-select: none; }
         .juxa-note-container .juxa-cloze:hover, .juxa-note-container .juxa-cloze:focus { color: inherit; background: rgba(99,102,241,.18); }
