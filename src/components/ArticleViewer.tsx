@@ -1029,6 +1029,16 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
       const contentToSave = inlineEditing && articleBodyRef.current
         ? (() => {
             const clone = articleBodyRef.current!.cloneNode(true) as HTMLElement;
+            clone.querySelectorAll("[data-juxa-math-source]").forEach(element => {
+              const source = element.getAttribute("data-juxa-math-source") || "";
+              const delimiter = element.getAttribute("data-juxa-math-display") === "true" ? "$$" : "$";
+              element.replaceWith(document.createTextNode(`${delimiter}${source}${delimiter}`));
+            });
+            clone.querySelectorAll("[data-juxa-mcq-id]").forEach(element => {
+              const placeholder = document.createElement("mcq-placeholder");
+              placeholder.setAttribute("data-id", element.getAttribute("data-juxa-mcq-id") || "");
+              element.replaceWith(placeholder);
+            });
             clone.querySelectorAll("mark[data-juxa-annotation]").forEach(mark => mark.replaceWith(...Array.from(mark.childNodes)));
             return clone.innerHTML;
           })()
@@ -1573,7 +1583,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
           const id = domNode.attribs['data-id'];
           const mcq = note.mcqs.find(m => m.id === id);
           if (mcq) {
-            return <MCQComponent mcq={mcq} />;
+            return <div data-juxa-mcq-id={id} contentEditable={false}><MCQComponent mcq={mcq} /></div>;
           }
         }
 
@@ -1582,7 +1592,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
           if (textContent.trim()) {
             const cleanMath = cleanLaTeX(textContent);
             return (
-              <div className="d101 flex justify-center py-4 text-center w-full">
+              <div className="d101 flex justify-center py-4 text-center w-full" data-juxa-math-source={cleanMath} data-juxa-math-display="true" contentEditable={false}>
                 <SafeMath 
                   math={cleanMath} 
                   displayMode={true} 
@@ -1600,7 +1610,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
           if (textContent.trim()) {
             const cleanMath = cleanLaTeX(textContent);
             return (
-              <span className="katex mx-1">
+              <span className="katex mx-1" data-juxa-math-source={cleanMath} data-juxa-math-display="false" contentEditable={false}>
                 <SafeMath 
                   math={cleanMath} 
                   displayMode={false} 
