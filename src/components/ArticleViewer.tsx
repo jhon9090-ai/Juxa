@@ -2028,9 +2028,17 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
 
               {/* 1:1 Clean Note Preview Container */}
               <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl max-h-[700px] overflow-y-auto shadow-md text-left scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-800">
-                <style>{`
+                <button type="button" onClick={() => setIsZenMode(value => !value)} title={isZenMode ? "Exit Zen Mode" : "Enter Zen Mode"} className="no-print fixed right-4 top-4 z-[90] inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 px-3 py-2 text-xs font-extrabold text-indigo-700 dark:text-indigo-300 shadow-lg backdrop-blur">
+        <Focus className="w-4 h-4" /> {isZenMode ? "Exit Zen" : "Zen"}
+      </button>
+      <style>{`
                   /* Match exactly standard layout folding effects */
-                  .juxa-note-container.is-folded > *:not(h1):not(h2):not(h3) {
+                  .juxa-zen-mode .d0 { padding-top: 1.5rem !important; padding-bottom: 3rem !important; }
+        .juxa-zen-mode .juxa-note-container { max-width: 850px; margin-left: auto; margin-right: auto; font-size: 1.05rem; line-height: 1.85; }
+        .juxa-note-container .juxa-cloze { display: inline-block; min-width: 5em; border-bottom: 2px solid #6366f1; color: transparent; border-radius: 2px; background: rgba(99,102,241,.08); cursor: pointer; user-select: none; }
+        .juxa-note-container .juxa-cloze:hover, .juxa-note-container .juxa-cloze:focus { color: inherit; background: rgba(99,102,241,.18); }
+        .juxa-note-container mark[data-juxa-annotation] { cursor: help; }
+        .juxa-note-container.is-folded > *:not(h1):not(h2):not(h3) {
                     display: none !important;
                   }
                 `}</style>
@@ -2060,7 +2068,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   }
 
   return (
-    <div id="juxa-printable-article" className="d16 bg-white dark:bg-slate-950 transition-all duration-300">
+    <div id="juxa-printable-article" className={`d16 bg-white dark:bg-slate-950 transition-all duration-300 ${isZenMode ? 'juxa-zen-mode' : ''}`}>
       <style>{`
         .juxa-note-container.is-folded > *:not(h1):not(h2):not(h3) {
           display: none !important;
@@ -2088,7 +2096,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
       <div className="d0 py-12">
         
         {/* Navigation Breadcrumb */}
-        <div className="d71 mb-8 no-print">
+        {!isZenMode && <div className="d71 mb-8 no-print">
           <ul className="d72 flex items-center gap-2 text-sm text-slate-500">
             <li className="d73 cursor-pointer select-none">Notes</li>
             <li className="d73">›</li>
@@ -2115,7 +2123,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
         )}
 
         {/* Dynamic Action Header Panel */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-6 mb-8 no-print">
+        {!isZenMode && <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-6 mb-8 no-print">
           <div className="max-w-xl">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-50 dark:bg-slate-900 px-2 py-1 rounded">Study Notebook Entry</span>
@@ -2236,12 +2244,76 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
           </div>
         )}
 
+        {/* Study workspace controls: section transformations, reader focus, and text annotations */}
+        <div className="no-print mb-6 rounded-2xl border border-indigo-100 dark:border-indigo-900/60 bg-indigo-50/70 dark:bg-indigo-950/25 p-4 md:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300"><BrainCircuit className="w-4 h-4" /> Study Workspace</div>
+              <p className="mt-1 text-xs text-slate-500">Choose a topic section, then reformat it, turn key terms into recall blanks, or create Anki cards.</p>
+            </div>
+            <button type="button" onClick={() => setIsZenMode(value => !value)} className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-extrabold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40">
+              <Focus className="w-4 h-4" /> {isZenMode ? "Exit Zen Mode" : "Enter Zen Mode"}
+            </button>
+          </div>
+          <div className="mt-4 flex flex-col lg:flex-row gap-3">
+            <label className="flex-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
+              Topic scope
+              <select value={selectedStudyScope} onChange={event => setSelectedStudyScope(event.target.value)} className="mt-1 block w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-200 normal-case tracking-normal">
+                <option value="__all__">Entire lesson — all topics</option>
+                {getStudyHeadingScopes(note.htmlContent).map(title => <option key={title} value={title}>{title}</option>)}
+              </select>
+            </label>
+            <div className="flex flex-wrap items-end gap-2">
+              <button type="button" disabled={studyToolBusy !== null} onClick={() => handleStudyTransformation("highlights")} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 px-3.5 py-2.5 text-xs font-extrabold text-white">
+                {studyToolBusy === "highlights" ? <Loader2 className="w-4 h-4 animate-spin" /> : <WandSparkles className="w-4 h-4" />} Highlight key information
+              </button>
+              <button type="button" disabled={studyToolBusy !== null} onClick={() => handleStudyTransformation("cloze")} className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 disabled:opacity-50 px-3.5 py-2.5 text-xs font-extrabold text-indigo-700 dark:text-indigo-300">
+                {studyToolBusy === "cloze" ? <Loader2 className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4" />} Hide key terms (recall)
+              </button>
+              <button type="button" disabled={studyToolBusy !== null} onClick={handleGenerateAnkiCards} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 disabled:opacity-50 px-3.5 py-2.5 text-xs font-extrabold text-slate-700 dark:text-slate-200">
+                {studyToolBusy === "anki" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Generate Anki cards
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-indigo-100 dark:border-indigo-900/50 pt-3">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Select text in the lesson to annotate</span>
+            {selectionText ? <span className="max-w-full truncate rounded-lg bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-600 dark:text-slate-300">“{selectionText.slice(0, 180)}{selectionText.length > 180 ? "…" : ""}”</span> : <span className="text-xs text-slate-400">No text selected</span>}
+            <button type="button" disabled={!selectionText} onClick={() => persistStudyAnnotation("", "yellow")} className="inline-flex items-center gap-1.5 rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-extrabold text-amber-800 disabled:opacity-40"><Highlighter className="w-3.5 h-3.5" /> Highlight</button>
+            <button type="button" disabled={!selectionText} onClick={() => setShowCommentEditor(value => !value)} className="inline-flex items-center gap-1.5 rounded-lg bg-sky-100 px-3 py-1.5 text-xs font-extrabold text-sky-800 disabled:opacity-40"><MessageSquare className="w-3.5 h-3.5" /> Add comment</button>
+            <span className="ml-auto text-[10px] font-bold text-slate-400">{(note.annotations || []).length} saved annotation{(note.annotations || []).length === 1 ? "" : "s"}</span>
+          </div>
+          {showCommentEditor && selectionText && <div className="mt-3 flex flex-col sm:flex-row gap-2">
+            <textarea value={commentDraft} onChange={event => setCommentDraft(event.target.value)} rows={2} placeholder="Add a note or question about this highlighted passage…" className="flex-1 rounded-xl border border-sky-200 bg-white dark:bg-slate-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-200" />
+            <button type="button" onClick={() => persistStudyAnnotation(commentDraft, "blue")} className="rounded-xl bg-sky-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-sky-700">Save comment</button>
+          </div>}
+          {studyToolError && <p className="mt-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-xs font-bold text-rose-600">{studyToolError}</p>}
+        </div>
+
         {/* Notebook Body Content */}
         <NoteViewerErrorBoundary rawHtml={processedHtml} onHeal={handleFixAllLaTeX}>
-          <div className={`juxa-note-container prose prose-slate dark:prose-invert max-w-none ${isFolded ? 'is-folded' : ''}`}>
+          <div ref={articleBodyRef} onMouseUp={captureTextSelection} className={`juxa-note-container prose prose-slate dark:prose-invert max-w-none ${isFolded ? 'is-folded' : ''}`}>
             {parse(processedHtml, finalOptions)}
           </div>
         </NoteViewerErrorBoundary>
+
+        {showAnkiCards && (
+          <div className="no-print fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Generated Anki flashcards">
+            <div className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 p-5 md:p-7 shadow-2xl">
+              <div className="flex items-start justify-between gap-3">
+                <div><span className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Anki export</span><h3 className="mt-1 text-xl font-black text-slate-900 dark:text-white">{ankiCards.length} cards ready</h3><p className="mt-1 text-xs text-slate-500">Preview the generated front/back cards. Download as TSV for Anki import.</p></div>
+                <button type="button" onClick={() => setShowAnkiCards(false)} className="rounded-lg px-3 py-1.5 text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900">Close</button>
+              </div>
+              <div className="mt-4 space-y-3">
+                {ankiCards.map((card,index) => <div key={index} className="rounded-xl border border-slate-200 dark:border-slate-800 p-3.5">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-indigo-600">Card {index+1} · Front</div><p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-200">{card.front}</p>
+                  <div className="mt-3 text-[9px] font-black uppercase tracking-widest text-emerald-600">Back</div><p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{card.back}</p>
+                  {card.tags.length>0 && <div className="mt-2 flex flex-wrap gap-1">{card.tags.map(tag=><span key={tag} className="rounded bg-slate-100 dark:bg-slate-900 px-2 py-0.5 text-[9px] font-mono text-slate-500">{tag}</span>)}</div>}
+                </div>)}
+              </div>
+              <div className="mt-5 flex flex-wrap justify-end gap-2"><button type="button" onClick={exportAnkiTsv} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-extrabold text-white hover:bg-indigo-700"><Download className="w-4 h-4" /> Download Anki TSV</button><button type="button" onClick={() => setShowAnkiCards(false)} className="rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-2.5 text-xs font-extrabold text-slate-600 dark:text-slate-300">Done</button></div>
+            </div>
+          </div>
+        )}
 
         {/* 100 MCQ Mastery Challenge grand banner at bottom */}
         <div className="mt-16 p-8 bg-slate-900 border border-slate-800 rounded-3xl relative overflow-hidden text-center max-w-4xl mx-auto no-print shadow-xl">
