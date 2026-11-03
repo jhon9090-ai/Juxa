@@ -247,7 +247,10 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   const [showTopicOptions, setShowTopicOptions] = useState(false);
   const [companionLoading, setCompanionLoading] = useState(false);
   const [companionError, setCompanionError] = useState<string | null>(null);
-  const [revealedOcclusionItems, setRevealedOcclusionItems] = useState<number[]>([]);
+  const [practiceHtml, setPracticeHtml] = useState("");
+  const [practiceLoading, setPracticeLoading] = useState(false);
+  const [practiceError, setPracticeError] = useState<string | null>(null);
+  const [practiceRevision, setPracticeRevision] = useState(0);
   const [studyToolBusy, setStudyToolBusy] = useState<"highlights" | "cloze" | "anki" | null>(null);
   const [studyToolError, setStudyToolError] = useState<string | null>(null);
   const [ankiCards, setAnkiCards] = useState<AnkiStudyCard[]>([]);
@@ -319,9 +322,23 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     setWordDefinition(null);
     setShowMoreStudyTools(false);
     setShowTopicOptions(false);
-    setRevealedOcclusionItems([]);
+    setPracticeHtml("");
+    setPracticeError(null);
     selectedRangeRef.current = null;
   }, [note.title, note.htmlContent]);
+
+  useEffect(() => {
+    if (!recallExerciseOpen) return;
+    let cancelled = false;
+    setPracticeLoading(true);
+    setPracticeError(null);
+    setPracticeHtml("");
+    transformStudyContent(note.title, note.htmlContent, "cloze")
+      .then(html => { if (!cancelled) setPracticeHtml(html); })
+      .catch(error => { if (!cancelled) setPracticeError(error instanceof Error ? error.message : "Unable to prepare the occlusion copy."); })
+      .finally(() => { if (!cancelled) setPracticeLoading(false); });
+    return () => { cancelled = true; };
+  }, [recallExerciseOpen, note.id, note.title, note.htmlContent]);
 
   // Generate and persist a companion once per note revision. This content lives outside the original note HTML.
   const companionSignature = `${note.title}:${note.htmlContent.length}:${note.htmlContent.slice(0, 96)}:${note.htmlContent.slice(-64)}`;
