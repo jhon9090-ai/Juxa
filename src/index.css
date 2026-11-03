@@ -2241,3 +2241,28 @@ html:not(.dark) .fixed.right-0.top-0.h-full.w-full.max-w-md > div:first-child { 
 html:not(.dark) .fixed.right-0.top-0.h-full.w-full.max-w-md h3 { color: #24263b !important; }
 html:not(.dark) .fixed.right-0.top-0.h-full.w-full.max-w-md input { background: #f7f7fb !important; color: #24263b !important; }
 html:not(.dark) .fixed.right-0.top-0.h-full.w-full.max-w-md .group.p-4 { background: #fff !important; border-color: #e7e8ef !important; }
+
+
+/* Contextual selection tools — compact, tactile, dark-first. */
+.juxa-selection-toolbar{display:flex;align-items:center;gap:4px;padding:5px;border:1px solid #3a4655;border-radius:14px;background:rgba(29,35,44,.97);color:#e7edf5;box-shadow:0 14px 38px rgba(0,0,0,.38);backdrop-filter:blur(18px)}
+.juxa-tool-button,.juxa-tool-icon{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:34px;padding:0 11px;border:1px solid transparent;border-radius:9px;background:transparent;color:#c7d2df;font-size:11px;font-weight:750;transition:background .16s ease,color .16s ease,border-color .16s ease,transform .16s ease}
+.juxa-tool-button:hover,.juxa-tool-icon:hover{background:#303c4b;color:#fff}.juxa-tool-button:active,.juxa-tool-icon:active{transform:scale(.97)}.juxa-tool-button:disabled{opacity:.45;cursor:wait}
+.juxa-tool-primary{background:#2f78b8;color:#fff;border-color:#438fcf}.juxa-tool-primary:hover{background:#3989ca}.juxa-tool-icon{width:34px;padding:0}
+.juxa-selection-menu,.juxa-selection-comment{position:absolute;right:0;top:calc(100% + 9px);min-width:245px;padding:7px;border:1px solid #354151;border-radius:14px;background:#202630;color:#e6edf5;box-shadow:0 16px 42px rgba(0,0,0,.4);backdrop-filter:blur(18px)}
+.juxa-selection-menu-label{padding:7px 9px 9px;color:#8795a7;font-size:9px;font-weight:850;letter-spacing:.12em;text-transform:uppercase}
+.juxa-selection-menu>button,.juxa-selection-scope>button{display:flex;align-items:center;gap:9px;width:100%;padding:9px;border-radius:9px;color:#d4deea;background:transparent;text-align:left;font-size:11px;font-weight:650}
+.juxa-selection-menu>button:hover,.juxa-selection-scope>button:hover{background:#303b49;color:#fff}.juxa-selection-menu button:disabled{opacity:.45}
+.juxa-selection-scope{margin-top:6px;padding:8px 7px 3px;border-top:1px solid #354151}
+.juxa-selection-scope label{display:block;margin:0 0 6px 2px;color:#91a0b2;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em}
+.juxa-selection-scope select{width:100%;padding:8px;margin-bottom:5px;border:1px solid #3a4655;border-radius:8px;background:#171d26;color:#e4ebf4;font-size:11px}
+.juxa-selection-comment{display:flex;gap:7px;min-width:280px}.juxa-selection-comment textarea{flex:1;min-width:0;resize:vertical;border:1px solid #3a4655;border-radius:8px;padding:8px;background:#171d26;color:#e4ebf4;font-size:11px}.juxa-selection-comment button{padding:8px 10px;border-radius:8px;background:#347fbd;color:#fff;font-size:10px;font-weight:800}
+.juxa-selection-error{margin-top:6px;padding:7px 9px;border-radius:8px;background:#4a252b;color:#ffb9bd;font-size:10px}
+.juxa-word-definition{width:min(290px,calc(100vw - 32px));padding:11px 13px;border:1px solid #3b4a5c;border-radius:12px;background:rgba(29,36,46,.97);color:#dce6f1;box-shadow:0 12px 34px rgba(0,0,0,.34);backdrop-filter:blur(16px)}
+.juxa-definition-word{color:#83b9e8;font-size:12px;font-weight:850;margin-bottom:4px}.juxa-word-definition p{margin:0;color:#e0e7ef;font-size:11px;line-height:1.55}.juxa-word-definition span{display:block;margin-top:6px;color:#8796a8;font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.juxa-depth-card{padding:20px;border:1px solid #344253;border-radius:22px;background:linear-gradient(145deg,#202a36,#1a222d 72%);box-shadow:0 14px 34px rgba(0,0,0,.18)}
+.juxa-depth-card .text-indigo-950,.juxa-depth-card .text-indigo-700{color:#c5dcf2!important}.juxa-depth-card .bg-indigo-100\/60{background:#2d4053!important;color:#9bc8ee!important;border:1px solid #3c5873}
+.juxa-depth-detail{padding:15px;border:1px solid #344253;border-radius:15px;background:rgba(14,19,27,.42);box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+.juxa-depth-detail .text-slate-800{color:#e4edf6!important}.juxa-depth-detail .text-slate-500{color:#9aaabd!important}
+.juxa-depth-budget{padding:12px 14px;border:1px solid #3a536b;border-radius:12px;background:linear-gradient(135deg,rgba(53,111,159,.2),rgba(35,64,82,.16))}
+.juxa-depth-budget .text-indigo-600{color:#8dc5f0!important}.juxa-depth-budget .text-slate-800{color:#e5edf5!important}.juxa-depth-budget input{border:1px solid #48627c!important;border-radius:8px!important;background:#17212c!important;color:#b8dcf7!important}
+@media(max-width:640px){.juxa-tool-button{padding:0 8px}.juxa-selection-menu{min-width:225px}.juxa-selection-comment{min-width:min(280px,calc(100vw - 32px))}.juxa-depth-card{padding:15px;border-radius:18px}}
