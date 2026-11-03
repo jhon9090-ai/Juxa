@@ -35,37 +35,45 @@ function cleanJsonResponse(text: string): string {
 
 export function getDepthWordBudget(depth: number): { target: number; min: number; max: number } {
   const normalizedDepth = Math.max(0, Math.min(100, Number.isFinite(depth) ? depth : 50));
-  const target = Math.round(500 + normalizedDepth * 30);
-  return {
-    target,
-    min: Math.round(target * 0.9),
-    max: Math.round(target * 1.1)
-  };
+  // Exponential scaling: concise 600-word treatments up to 15,000-word chapters.
+  const target = Math.round((600 * Math.pow(15000 / 600, normalizedDepth / 100)) / 100) * 100;
+  const min = Math.max(450, Math.round(target * 0.88 / 50) * 50);
+  const max = Math.min(15000, Math.round(target * 1.12 / 50) * 50);
+  return { target, min, max };
+}
+
+export function getDepthFromWordTarget(wordTarget: number): number {
+  const target = Math.max(600, Math.min(15000, Number.isFinite(wordTarget) ? wordTarget : 3000));
+  return Math.round((Math.log(target / 600) / Math.log(15000 / 600)) * 100);
 }
 
 export function getDepthInstructions(depth: number): string {
-  const budget = getDepthWordBudget(depth);
-  const depthLabel = depth <= 25
-    ? "concise, high-yield coverage"
-    : depth < 50
-      ? "focused explanations with useful supporting detail"
-      : depth <= 60
-        ? "balanced, complete textbook-style coverage"
-        : depth < 80
-          ? "detailed explanations and worked reasoning"
-          : "exhaustive, university-level theoretical depth";
+  const normalizedDepth = Math.max(0, Math.min(100, Number.isFinite(depth) ? depth : 50));
+  const budget = getDepthWordBudget(normalizedDepth);
+  const depthProfile = normalizedDepth <= 12
+    ? "MICRO-OVERVIEW: essential definitions, central claims, formulas, and a compact summary."
+    : normalizedDepth <= 30
+      ? "CONCISE: core ideas with clarifying examples and minimal digression."
+      : normalizedDepth <= 50
+        ? "FOUNDATIONAL: coherent textbook coverage, definitions, conceptual links, and representative examples."
+        : normalizedDepth <= 68
+          ? "DETAILED: thorough explanation, stepwise reasoning, examples, misconceptions, and implications."
+          : normalizedDepth <= 84
+            ? "ADVANCED: deep theory, assumptions, derivations, contrasting frameworks, applications, limitations, and worked examples."
+            : "EXHAUSTIVE: chapter-length treatment with nuanced theory, detailed derivations, broad examples, edge cases, and synthesis.";
 
-  return `MANDATORY GENERATION BUDGET — THIS IS A HARD OUTPUT CONSTRAINT:
-- Selected depth: ${Math.max(0, Math.min(100, depth))}%.
-- Required target length: ${budget.target.toLocaleString("en-US")} words.
-- Permitted final length: ${budget.min.toLocaleString("en-US")}–${budget.max.toLocaleString("en-US")} words (inclusive).
-- The target and permitted range are calculated from the selected slider value. Do not treat the slider as a vague style preference.
-- Plan the chapter to fit this word budget before drafting. Allocate space across the actual concepts proportionally; do not spend the budget repeating introductions or padding.
-- Before returning the JSON, estimate the word count of htmlContent and revise it so it falls inside the permitted range. Do not count HTML tags as words.
-- Do not stop early below the minimum and do not exceed the maximum. Preserve all key concepts from the supplied material while adjusting the detail and explanation depth to fit.
-- Desired explanatory style: ${depthLabel}.
-- At lower levels, compress examples and theoretical background; at higher levels, expand derivations, mechanisms, assumptions, limitations, comparisons, and worked examples.
-- This numeric word-count restriction applies to the generated lesson body (htmlContent), not the JSON syntax, title, or MCQ metadata.`;
+  return `MANDATORY DEPTH SPECIFICATION — follow pedagogical profile and length range:
+- Depth setting: ${normalizedDepth}/100.
+- Pedagogical profile: ${depthProfile}
+- Planned body target: about ${budget.target.toLocaleString("en-US")} words; permitted range ${budget.min.toLocaleString("en-US")}–${budget.max.toLocaleString("en-US")} words.
+- Depth controls breadth, conceptual granularity, reasoning steps, examples, derivations, comparisons, caveats, and synthesis—not just verbosity.
+- For a narrow topic, use the chosen depth to unpack it thoroughly; do not introduce unrelated concepts to inflate length.
+- For a broad topic, allocate proportionally to all important subtopics and preserve supplied syllabus/source scope.
+- At advanced levels, explain prerequisites only when necessary and show reasoning rather than merely asserting conclusions.
+- Plan an outline and section-level word allocation before drafting; avoid repetition and filler.
+- Estimate the final word count of htmlContent excluding HTML tags, JSON, title, and MCQ metadata; keep the body inside the permitted range.
+- Include worked examples, misconceptions, key-term definitions, applications, and synthesis according to the profile.
+- Lower levels prioritize high-yield learning objectives; higher levels expand theory and nuance without sacrificing clarity.`;
 }
 
 export async function enhanceNote(
