@@ -302,6 +302,9 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
     setSelectedStudyScope("__all__");
     setShowCommentEditor(false);
     setSelectionText("");
+    setSelectionPosition(null);
+    setWordDefinition(null);
+    setShowMoreStudyTools(false);
     selectedRangeRef.current = null;
   }, [note.title, note.htmlContent]);
 
