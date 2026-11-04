@@ -87,7 +87,7 @@ export async function enhanceNote(
   // HTML, SVG markup, equations, JSON escaping, and MCQ explanations can consume
   // several times as many tokens as the visible prose. The depth instructions
   // control the intended note length; this ceiling only prevents premature truncation.
-  const maxOutputTokens = 32768;
+  const maxOutputTokens = 65536;
   
   const contextHeader = unitContext 
     ? `SUBJECT: ${unitContext.subjectName}
@@ -130,7 +130,7 @@ GUIDELINES FOR DEMONSTRATIONS (DIAGRAMS & VISUALIZATIONS):
 
 STRICT GENERAL RULES:
 1. DO NOT REMOVE or omit any information or core concept from the original notes or unit syllabus.
-2. Embed multiple SVG demonstrations (at least 2-3 throughout the lesson) to visually guide the reader through each major concept or mathematical derivation in the notes.
+2. Scale SVG demonstrations to the requested depth and response budget: concise notes should include 1 useful diagram when relevant; foundational or detailed notes may include 2; advanced/exhaustive notes may include 2-3. Do not let SVG markup crowd out the requested prose or cause the response to be truncated.
 3. Use KaTeX notation for equations:
    - For block equations, use exactly:
      <div class="d49">
