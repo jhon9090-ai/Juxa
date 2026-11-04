@@ -265,11 +265,42 @@ Ensure the output is 100% valid stringified JSON. Do not wrap in markdown block 
     }
   });
 
+  const responseText = response.text?.trim() || "";
+  if (!responseText) {
+    const candidate = response.candidates?.[0] as any;
+    const finishReason = candidate?.finishReason || "unknown";
+    const blockReason = (response.promptFeedback as any)?.blockReason;
+    console.error("Gemini returned no note content.", { finishReason, blockReason, usageMetadata: response.usageMetadata });
+    if (blockReason) {
+      throw new Error(`Gemini blocked this request (${blockReason}). Try changing the source text or prompt.`);
+    }
+    if (finishReason === "MAX_TOKENS") {
+      throw new Error("The selected depth produced a note that exceeded the AI response limit. Reduce the depth or split the source into smaller sections, then try again.");
+    }
+    throw new Error(`Gemini returned an empty note response (finish reason: ${finishReason}). Check the selected model and API availability, then try again.`);
+  }
+
   try {
-    return JSON.parse(response.text || "{}") as EnhancedNote;
+    const parsed = JSON.parse(cleanJsonResponse(responseText)) as EnhancedNote;
+    if (!parsed || typeof parsed.title !== "string" || typeof parsed.htmlContent !== "string" || !Array.isArray(parsed.mcqs)) {
+      throw new Error("The AI response did not contain the required title, note content, and MCQ fields.");
+    }
+    return parsed;
   } catch (error) {
-    console.error("Failed to parse AI response:", error);
-    throw new Error("Failed to process notes. Please try again.");
+    const candidate = response.candidates?.[0] as any;
+    const finishReason = candidate?.finishReason || "unknown";
+    console.error("Failed to parse Gemini note response.", {
+      error,
+      finishReason,
+      responseLength: responseText.length,
+      usageMetadata: response.usageMetadata,
+      responsePreview: responseText.slice(0, 500),
+      responseTail: responseText.slice(-500)
+    });
+    if (finishReason === "MAX_TOKENS") {
+      throw new Error("The AI stopped before finishing the note because the selected depth was too large for one response. Lower the depth or split the source into smaller sections and generate again.");
+    }
+    throw new Error("The AI returned an incomplete or invalid note format. Try again; if it repeats, lower the depth or split the source into smaller sections.");
   }
 }
 
