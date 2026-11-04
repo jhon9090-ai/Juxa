@@ -83,9 +83,11 @@ export async function enhanceNote(
 ): Promise<EnhancedNote> {
   const source = localStorage.getItem("juxa_api_source") || "builtin";
   const depthBudget = getDepthWordBudget(depth);
-  // Estimate token headroom for HTML, equations, and the accompanying MCQ JSON.
-  // Keep under common model response ceilings while scaling with the selected chapter depth.
-  const maxOutputTokens = Math.min(32768, Math.max(4096, Math.ceil(depthBudget.target * 1.5)));
+  // Keep the provider output ceiling independent from the requested word target.
+  // HTML, SVG markup, equations, JSON escaping, and MCQ explanations can consume
+  // several times as many tokens as the visible prose. The depth instructions
+  // control the intended note length; this ceiling only prevents premature truncation.
+  const maxOutputTokens = 32768;
   
   const contextHeader = unitContext 
     ? `SUBJECT: ${unitContext.subjectName}
@@ -298,7 +300,7 @@ Ensure the output is 100% valid stringified JSON. Do not wrap in markdown block 
       responseTail: responseText.slice(-500)
     });
     if (finishReason === "MAX_TOKENS") {
-      throw new Error("The AI stopped before finishing the note because the selected depth was too large for one response. Lower the depth or split the source into smaller sections and generate again.");
+      throw new Error("The AI provider reached its output-token limit before completing the note. This limit is separate from your selected word target; try again, or split an unusually large source into sections.");
     }
     throw new Error("The AI returned an incomplete or invalid note format. Try again; if it repeats, lower the depth or split the source into smaller sections.");
   }
