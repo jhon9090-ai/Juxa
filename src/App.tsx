@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArticleViewer } from './components/ArticleViewer';
 import { LibraryDrawer } from './components/LibraryDrawer';
+import { NotesTransfer } from './components/NotesTransfer';
 import { ModelSettingsModal } from './components/ModelSettingsModal';
 import { UnitWorkspace } from './components/UnitWorkspace';
 import { BulkGenerator } from './components/BulkGenerator';
@@ -293,6 +294,9 @@ export default function App() {
           >
             <Settings className="w-5 h-5" />
           </button>
+
+          {/* JSON Note Import / Export controls */}
+          <NotesTransfer notebooks={vaultNotebooks} activeNote={enhancedNote} onImported={loadVaultNotebooks} />
 
           {/* History Drawer Trigger button */}
           <button 
