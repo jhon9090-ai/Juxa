@@ -5,7 +5,7 @@ import {
   Trash2, RotateCw, ArrowRight, Clipboard, Sliders
 } from "lucide-react";
 import { EnhancedNotebook } from "../services/db";
-import { getDepthWordBudget, getDepthFromWordTarget } from "../services/geminiService";
+
 
 interface UnitWorkspaceProps {
   subjectName: string;
@@ -19,36 +19,15 @@ interface UnitWorkspaceProps {
   isLoading: boolean;
 }
 
-const getDepthDescription = (val: number) => {
-  if (val === 0) return {
-    label: "Extremely Concise Summary",
-    desc: "Provides only the absolute barebones concepts, core definitions, and immediate formulas. Fast to read, zero overhead."
-  };
-  if (val <= 25) return {
-    label: "Concise & To-the-Point",
-    desc: "A clean, high-yield overview highlighting major takeaways. Avoids lengthy explanations and chronological background."
-  };
-  if (val < 50) return {
-    label: "Efficient Overview",
-    desc: "Focused and streamlined, keeping key terms and equations but reducing secondary descriptions."
-  };
-  if (val === 50) return {
-    label: "Balanced (Precise & Complete)",
-    desc: "The optimal middle point. Contains enough depth to ensure zero information is removed, remaining thoroughly precise without unnecessary filler."
-  };
-  if (val < 75) return {
-    label: "Detailed & Elaborated",
-    desc: "Comprehensive coverage with expanded sub-principles, step-by-step math breakdowns, and clear descriptions."
-  };
-  if (val < 100) return {
-    label: "Very In-depth Textbook Chapter",
-    desc: "A rich, university-grade deep dive with comprehensive background, multiple rich paragraphs, and deep theoretical context."
-  };
-  return {
-    label: "Ultimate Exhaustive Deep Dive",
-    desc: "Maximum academic detail. Fully-elaborated textbook chapter with step-by-step derivations, historical background, and extensive theoretical context."
-  };
-};
+const DEPTH_PRESETS = [
+  { label: "Key points", value: 12, desc: "Prioritize essential terms, central claims, formulas, and high-yield takeaways." },
+  { label: "Concise", value: 28, desc: "A focused overview with brief explanations and representative examples." },
+  { label: "Balanced", value: 50, desc: "Clear foundational coverage with concepts, examples, and useful connections." },
+  { label: "Detailed", value: 72, desc: "Thorough explanations, worked examples, reasoning steps, and common misconceptions." },
+  { label: "Comprehensive", value: 90, desc: "Deep academic treatment with theory, derivations, applications, caveats, and synthesis." },
+  { label: "Preserve source", value: 100, desc: "Retain all source ideas and details; organize and clarify without intentionally shortening or omitting content." },
+  { label: "Exam-focused", value: 60, desc: "Emphasize examinable definitions, distinctions, formulas, problem-solving methods, and likely misconceptions." }
+];
 
 export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
   subjectName,
@@ -342,61 +321,17 @@ export const UnitWorkspace: React.FC<UnitWorkspaceProps> = ({
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-6">
-        {/* Dynamic Depth Slider */}
-        <style>{`
-          .juxa-depth-slider{appearance:none;height:7px;border-radius:999px;background:linear-gradient(90deg,#526b84 0%,#5b9bd4 50%,#79c7b2 100%);outline:none}
-          .juxa-depth-slider::-webkit-slider-thumb{appearance:none;width:20px;height:20px;border-radius:50%;background:#e8f4ff;border:4px solid #559bd7;box-shadow:0 0 0 5px rgba(85,155,215,.15),0 3px 10px rgba(0,0,0,.3);cursor:grab}
-          .juxa-depth-slider::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#e8f4ff;border:4px solid #559bd7;box-shadow:0 0 0 5px rgba(85,155,215,.15),0 3px 10px rgba(0,0,0,.3);cursor:grab}
-        `}</style>
+        {/* AI note style presets */}
         <div className="juxa-depth-card">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-indigo-600 animate-pulse" />
-              <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-950 font-mono">
-                AI Generation Depth Control
-              </span>
-            </div>
-            <span className="text-xs font-black text-indigo-700 bg-indigo-100/60 px-2.5 py-1 rounded-full font-mono">
-              {depth.toFixed(1)}% Depth
-            </span>
+          <div className="flex items-center gap-2 mb-3">
+            <Sliders className="w-4 h-4 text-indigo-600" />
+            <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-950 font-mono">AI Note Style</span>
           </div>
-          
-          <div className="space-y-3">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={depth}
-              onChange={(e) => { const nextDepth = Number(e.target.value); setDepth(nextDepth); setCustomWordTarget(String(getDepthWordBudget(nextDepth).target)); }}
-              className="juxa-depth-slider w-full cursor-pointer"
-            />
-            
-            <div className="flex justify-between text-[10px] text-slate-400 font-extrabold font-mono uppercase tracking-wide px-1">
-              <span>Very Concise</span>
-              <span className="text-indigo-600">Balanced (Preserves Info)</span>
-              <span>Very In-Depth</span>
-            </div>
-
-            <div className="juxa-depth-detail mt-3">
-              <div className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse"></div>
-                {getDepthDescription(depth).label}
-              </div>
-              <p className="text-xs text-slate-500 leading-relaxed mt-1">
-                {getDepthDescription(depth).desc}
-              </p>
-              <div className="juxa-depth-budget mt-3">
-                <div className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 font-mono">Calculated AI output restriction</div>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-black text-slate-800">
-                  <label htmlFor="depth-word-target">Target words</label>
-                  <input id="depth-word-target" type="number" min="600" max="15000" step="100" value={customWordTarget} onChange={(e) => setCustomWordTarget(e.target.value)} onBlur={() => { const target = Number(customWordTarget); if (Number.isFinite(target) && target >= 600) { const nextDepth = getDepthFromWordTarget(target); setDepth(nextDepth); setCustomWordTarget(String(getDepthWordBudget(nextDepth).target)); } else { setCustomWordTarget(String(depthBudget.target)); } }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }} className="w-28 rounded-lg border border-indigo-200 bg-white px-2 py-1 text-sm font-black text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-300" />
-                </div>
-                <div className="text-xs text-slate-500 mt-0.5">
-                  Allowed range: {depthBudget.min.toLocaleString()}–{depthBudget.max.toLocaleString()} words
-                </div>
-              </div>
-            </div>
-          </div>
+          <label htmlFor="ai-note-style" className="block text-sm font-bold text-slate-800 mb-2">Choose how the note should be written</label>
+          <select id="ai-note-style" value={depth} onChange={e => setDepth(Number(e.target.value))} className="w-full rounded-xl border border-indigo-200 bg-white px-3 py-3 text-sm font-bold text-indigo-900 outline-none focus:ring-2 focus:ring-indigo-300">
+            {DEPTH_PRESETS.map(preset => <option key={preset.value} value={preset.value}>{preset.label}</option>)}
+          </select>
+          <p className="text-xs text-slate-500 leading-relaxed mt-2">{selectedDepthPreset.desc}</p>
         </div>
 
         {/* Resource Drag-And-Drop Box */}
