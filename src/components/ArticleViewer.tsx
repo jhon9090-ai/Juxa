@@ -152,7 +152,8 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   const [batchStatusText, setBatchStatusText] = useState("");
 
   // Editor and folding states
-  const [isEditing, setIsEditing] = useState(false);\n  const [isInlineEditing, setIsInlineEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isInlineEditing, setIsInlineEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(note.title);
   const [editContent, setEditContent] = useState(note.htmlContent);
   const [isFolded, setIsFolded] = useState(false);
