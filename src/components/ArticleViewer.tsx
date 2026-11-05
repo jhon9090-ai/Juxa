@@ -9,6 +9,7 @@ import { saveNotebook, EnhancedNotebook } from '../services/db';
 import { SYLLABUS } from '../data/syllabus';
 import { NoteViewerErrorBoundary } from './NoteViewerErrorBoundary';
 import { RecallPractice } from './RecallPractice';
+import { AnkiFlashcards } from './AnkiFlashcards';
 import { NoteHighlighter } from './NoteHighlighter';
 import { 
   Printer, FileDown, RefreshCw, GraduationCap, Award, 
@@ -1929,6 +1930,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
           <div className="flex items-center gap-2.5">
             <NoteHighlighter note={note} onUpdateNote={onUpdateNote} />
             <RecallPractice title={note.title} html={note.htmlContent} />
+            <AnkiFlashcards title={note.title} html={note.htmlContent} />
             <button
               onClick={() => setIsExamMode(true)}
               type="button"
