@@ -218,17 +218,11 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   // Keyboard Shortcuts handling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + Shift + E -> Open direct note editor; press again to save
+      // Ctrl/Cmd + Shift + E -> Open the full advanced editor with live preview.
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === "KeyE") {
         e.preventDefault();
-        if (isInlineEditing) {
-          setIsInlineEditing(false);
-          void handleSaveEdits();
-        } else {
-          setEditTitle(note.title);
-          setEditContent(note.htmlContent);
-          setIsInlineEditing(true);
-        }
+        setIsInlineEditing(false);
+        setIsEditing(true);
       }
       
       // Ctrl + Shift + F -> Fold headings
