@@ -20,7 +20,7 @@ export const NoteHighlighter: React.FC<{ note: EnhancedNotebook; onUpdateNote?: 
   const apply=async(color:string)=>{
     const selection=window.getSelection();if(!selection||selection.rangeCount===0)return;
     const range=selection.getRangeAt(0);const mark=document.createElement("mark");
-    mark.setAttribute("data-juxa-highlight", "true"); mark.style.setProperty("background-color", color, "important"); mark.style.setProperty("background-image", "none", "important"); mark.style.setProperty("color", "inherit", "important"); mark.style.setProperty("-webkit-text-fill-color", "currentColor", "important"); mark.style.setProperty("opacity", "1", "important"); mark.style.padding="0 .08em"; mark.style.borderRadius=".15em"; mark.style.boxDecorationBreak="clone"; mark.style.webkitBoxDecorationBreak="clone";
+    mark.setAttribute("data-juxa-highlight", "true"); mark.style.setProperty("background-color", color, "important"); mark.style.setProperty("background-image", "none", "important"); mark.style.setProperty("color", "inherit", "important"); mark.style.setProperty("-webkit-text-fill-color", "currentColor", "important"); mark.style.setProperty("opacity", "1", "important"); mark.style.padding="0 .08em"; mark.style.borderRadius=".15em"; mark.style.setProperty("box-decoration-break", "clone"); mark.style.setProperty("-webkit-box-decoration-break", "clone");
     try{range.surroundContents(mark);}catch{const fragment=range.extractContents();mark.appendChild(fragment);range.insertNode(mark);}
     const root=mark.closest(".juxa-note-container");if(root){const updated={...note,htmlContent:root.innerHTML};await saveNotebook(updated);onUpdateNote?.(updated);}
     selection.removeAllRanges();setToolbar(null);
