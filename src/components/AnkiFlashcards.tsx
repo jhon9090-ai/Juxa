@@ -4,7 +4,7 @@ import { AnkiFlashcard, generateAnkiFlashcards } from "../services/geminiService
 
 type Scope = "selected" | "subtopic" | "main" | "all";
 
-export const AnkiFlashcards: React.FC<{ title: string; html: string }> = ({ title, html }) => {
+export const AnkiFlashcards: React.FC<{ title: string; html: string; initialScope?: Scope }> = ({ title, html, initialScope = "all" }) => {
   const topics = useMemo(() => {
     const doc = new DOMParser().parseFromString(html || "", "text/html");
     return Array.from(doc.querySelectorAll("h2, h3")).map((heading, index) => {
@@ -20,7 +20,7 @@ export const AnkiFlashcards: React.FC<{ title: string; html: string }> = ({ titl
   }, [html]);
 
   const [open, setOpen] = useState(false);
-  const [scope, setScope] = useState<Scope>("all");
+  const [scope, setScope] = useState<Scope>(initialScope);
   const [topicId, setTopicId] = useState("0");
   const [cards, setCards] = useState<AnkiFlashcard[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,7 +66,7 @@ export const AnkiFlashcards: React.FC<{ title: string; html: string }> = ({ titl
   };
 
   return <>
-    <button type="button" onClick={()=>{setOpen(true);setError("");}} title="Generate Anki flashcards" className="flex items-center gap-2 px-3 py-2.5 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 rounded-xl font-bold text-xs hover:bg-indigo-50 dark:hover:bg-indigo-950/30">
+    <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>{setOpen(true);setScope(initialScope);setError("");}} title="Generate Anki flashcards" className="flex items-center gap-2 px-3 py-2.5 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 rounded-xl font-bold text-xs hover:bg-indigo-50 dark:hover:bg-indigo-950/30">
       <Layers className="w-4 h-4"/> Anki
     </button>
     {open && <div className="fixed inset-0 z-[95] bg-black/50 flex items-center justify-center p-3" role="dialog" aria-modal="true" aria-label="Anki flashcards">
