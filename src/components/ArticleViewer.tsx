@@ -151,7 +151,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   const [batchStatusText, setBatchStatusText] = useState("");
 
   // Editor and folding states
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);\n  const [isInlineEditing, setIsInlineEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(note.title);
   const [editContent, setEditContent] = useState(note.htmlContent);
   const [isFolded, setIsFolded] = useState(false);
@@ -219,12 +219,13 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
       // Ctrl/Cmd + Shift + E -> Open direct note editor; press again to save
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === "KeyE") {
         e.preventDefault();
-        if (isEditing) {
+        if (isInlineEditing) {
+          setIsInlineEditing(false);
           void handleSaveEdits();
         } else {
           setEditTitle(note.title);
           setEditContent(note.htmlContent);
-          setIsEditing(true);
+          setIsInlineEditing(true);
         }
       }
       
@@ -2036,7 +2037,14 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
 
         {/* Notebook Body Content */}
         <NoteViewerErrorBoundary rawHtml={processedHtml} onHeal={handleFixAllLaTeX}>
-          <div className={`juxa-note-container prose prose-slate dark:prose-invert max-w-none ${isFolded ? 'is-folded' : ''}`}>
+          <div
+            className={`juxa-note-container prose prose-slate dark:prose-invert max-w-none ${isFolded ? 'is-folded' : ''} ${isInlineEditing ? 'outline outline-2 outline-indigo-300 rounded-xl p-3' : ''}`}
+            contentEditable={isInlineEditing}
+            suppressContentEditableWarning
+            onInput={isInlineEditing ? (e) => setEditContent(e.currentTarget.innerHTML) : undefined}
+            role={isInlineEditing ? "textbox" : undefined}
+            aria-label={isInlineEditing ? "Edit note content inline" : undefined}
+          >
             {parse(processedHtml, finalOptions)}
           </div>
         </NoteViewerErrorBoundary>
