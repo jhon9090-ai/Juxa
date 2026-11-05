@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Highlighter, X } from "lucide-react";
 import { EnhancedNotebook, saveNotebook } from "../services/db";
+import { AnkiFlashcards } from "./AnkiFlashcards";
 
 export const NoteHighlighter: React.FC<{ note: EnhancedNotebook; onUpdateNote?: (note: EnhancedNotebook)=>void }> = ({ note, onUpdateNote }) => {
   const [toolbar, setToolbar] = useState<{x:number;y:number}|null>(null);
@@ -25,7 +26,7 @@ export const NoteHighlighter: React.FC<{ note: EnhancedNotebook; onUpdateNote?: 
     selection.removeAllRanges();setToolbar(null);
   };
   return <>{toolbar&&<div className="fixed z-[80] flex gap-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-1.5 shadow-xl" style={{left:toolbar.x,top:toolbar.y}}>
-    <button title="Yellow highlight" onMouseDown={e=>e.preventDefault()} onClick={()=>apply("#fff2a8")} className="p-2 rounded-lg bg-yellow-200"><Highlighter className="w-4 h-4 text-slate-700"/></button>
+    <AnkiFlashcards title={note.title} html={note.htmlContent} initialScope="selected" />\n    <button title="Yellow highlight" onMouseDown={e=>e.preventDefault()} onClick={()=>apply("#fff2a8")} className="p-2 rounded-lg bg-yellow-200"><Highlighter className="w-4 h-4 text-slate-700"/></button>
     <button title="Blue highlight" onMouseDown={e=>e.preventDefault()} onClick={()=>apply("#bfdbfe")} className="p-2 rounded-lg bg-blue-200"><Highlighter className="w-4 h-4 text-slate-700"/></button>
     <button title="Pink highlight" onMouseDown={e=>e.preventDefault()} onClick={()=>apply("#fbcfe8")} className="p-2 rounded-lg bg-pink-200"><Highlighter className="w-4 h-4 text-slate-700"/></button>
     <button title="Dismiss" onClick={()=>setToolbar(null)} className="p-2"><X className="w-4 h-4"/></button>
