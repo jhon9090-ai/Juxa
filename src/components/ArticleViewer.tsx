@@ -8,6 +8,8 @@ import { EnhancedNote, generateExamQuestions, MCQ, generateBespokeExamSections, 
 import { saveNotebook, EnhancedNotebook } from '../services/db';
 import { SYLLABUS } from '../data/syllabus';
 import { NoteViewerErrorBoundary } from './NoteViewerErrorBoundary';
+import { RecallPractice } from './RecallPractice';
+import { NoteHighlighter } from './NoteHighlighter';
 import { 
   Printer, FileDown, RefreshCw, GraduationCap, Award, 
   ChevronRight, ArrowLeft, Brain, Check, X, CheckSquare, 
@@ -214,10 +216,16 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
   // Keyboard Shortcuts handling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Alt + Shift + D -> Toggle edit mode
-      if (e.altKey && e.shiftKey && e.code === "KeyD") {
+      // Ctrl/Cmd + Shift + E -> Open direct note editor; press again to save
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === "KeyE") {
         e.preventDefault();
-        setIsEditing(prev => !prev);
+        if (isEditing) {
+          void handleSaveEdits();
+        } else {
+          setEditTitle(note.title);
+          setEditContent(note.htmlContent);
+          setIsEditing(true);
+        }
       }
       
       // Ctrl + Shift + F -> Fold headings
@@ -1918,6 +1926,8 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({ note, onUpdateNote
           </div>
           
           <div className="flex items-center gap-2.5">
+            <NoteHighlighter note={note} onUpdateNote={onUpdateNote} />
+            <RecallPractice title={note.title} html={note.htmlContent} />
             <button
               onClick={() => setIsExamMode(true)}
               type="button"
