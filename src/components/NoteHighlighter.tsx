@@ -28,7 +28,7 @@ export const NoteHighlighter: React.FC<{ note: EnhancedNotebook; onUpdateNote?: 
   return <>{toolbar&&<div className="fixed z-[80] flex gap-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-1.5 shadow-xl" style={{left:toolbar.x,top:toolbar.y}}>
     <AnkiFlashcards title={note.title} html={note.htmlContent} initialScope="selected" />\n    <button title="Yellow highlight" onMouseDown={e=>e.preventDefault()} onClick={()=>apply("rgba(255, 242, 168, 0.48)")} className="p-2 rounded-lg bg-yellow-200"><Highlighter className="w-4 h-4 text-slate-700"/></button>
     <button title="Blue highlight" onMouseDown={e=>e.preventDefault()} onClick={()=>apply("rgba(191, 219, 254, 0.48)")} className="p-2 rounded-lg bg-blue-200"><Highlighter className="w-4 h-4 text-slate-700"/></button>
-    <button title="Pink highlight" onMouseDown={e=>e.preventDefault()} onClick={()=>apply("rgba(251, 207, 232, 0.48)") className="p-2 rounded-lg bg-pink-200"><Highlighter className="w-4 h-4 text-slate-700"/></button>
+    <button title="Pink highlight" onMouseDown={e=>e.preventDefault()} onClick={()=>apply("rgba(251, 207, 232, 0.48)")} className="p-2 rounded-lg bg-pink-200"><Highlighter className="w-4 h-4 text-slate-700"/></button>
     <button title="Dismiss" onClick={()=>setToolbar(null)} className="p-2"><X className="w-4 h-4"/></button>
   </div>}</>;
 };
