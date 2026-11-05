@@ -944,7 +944,8 @@ export interface AnkiFlashcard {
 export async function generateAnkiFlashcards(
   noteTitle: string,
   sourceContent: string,
-  count: number = 20
+  count: number = 20,
+  excludeFronts: string[] = []
 ): Promise<AnkiFlashcard[]> {
   const source = localStorage.getItem("juxa_api_source") || "builtin";
   const prompt = `Create exactly ${count} high-quality Anki Basic flashcards grounded ONLY in the source material below.
@@ -953,6 +954,7 @@ Requirements:
 - Each card has a concise, unambiguous front (question or recall cue) and a useful back (answer).
 - Test core definitions, principles, relationships, distinctions, steps, and equations where applicable.
 - Avoid duplicates, vague prompts, trivial facts, and unsupported additions.
+- Do not repeat or closely paraphrase these previously generated card fronts: ${JSON.stringify(excludeFronts.slice(-100))}.
 - Keep LaTeX in standard Anki-friendly text form; do not include HTML wrappers.
 - Return valid JSON only as {"cards":[{"front":"...","back":"..."}]}.
 SOURCE MATERIAL:
