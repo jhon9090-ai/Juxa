@@ -26,6 +26,8 @@ export const AnkiFlashcards: React.FC<{ title: string; html: string; initialScop
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [cardCount, setCardCount] = useState("20");
+  const [generationProgress, setGenerationProgress] = useState("");
 
   const createCards = async () => {
     let source = html;
@@ -46,13 +48,30 @@ export const AnkiFlashcards: React.FC<{ title: string; html: string; initialScop
       label = `${title} — ${first?.textContent?.trim() || "main topic"}`;
       source = html;
     }
-    setLoading(true); setError(""); setCards([]);
+    const requestedCount = Number(cardCount);
+    if (!Number.isSafeInteger(requestedCount) || requestedCount < 1) {
+      setError("Enter a whole number of cards greater than zero.");
+      return;
+    }
+    setLoading(true); setError(""); setCards([]); setGenerationProgress("");
     try {
-      const generated = await generateAnkiFlashcards(label, source, 20);
-      setCards(generated); setPreviewIndex(0);
+      const collected: AnkiFlashcard[] = [];
+      const batchSize = 20;
+      while (collected.length < requestedCount) {
+        const batchCount = Math.min(batchSize, requestedCount - collected.length);
+        setGenerationProgress(`Generated ${collected.length} of ${requestedCount} cards…`);
+        const batch = await generateAnkiFlashcards(label, source, batchCount, collected.map(card => card.front));
+        collected.push(...batch);
+        setGenerationProgress(`Generated ${collected.length} of ${requestedCount} cards…`);
+        if (batch.length < batchCount) break;
+      }
+      setCards(collected); setPreviewIndex(0);
+      if (collected.length < requestedCount) {
+        setError(`The model returned ${collected.length} of ${requestedCount} requested cards. Try a smaller count or generate the remaining cards separately.`);
+      }
     } catch (e: any) {
       setError(e?.message || "Could not generate flashcards.");
-    } finally { setLoading(false); }
+    } finally { setLoading(false); setGenerationProgress(""); }
   };
 
   const exportTsv = () => {
@@ -71,14 +90,16 @@ export const AnkiFlashcards: React.FC<{ title: string; html: string; initialScop
     </button>
     {open && <div className="fixed inset-0 z-[95] bg-black/50 flex items-center justify-center p-3" role="dialog" aria-modal="true" aria-label="Anki flashcards">
       <section className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 shadow-2xl">
-        <header className="flex justify-between gap-3 items-center"><div><h2 className="text-lg font-black">Anki flashcards</h2><p className="text-xs text-slate-500">Generate 20 cards, preview them, and export an Anki-compatible TSV.</p></div><button onClick={()=>setOpen(false)} aria-label="Close"><X className="w-5 h-5"/></button></header>
+        <header className="flex justify-between gap-3 items-center"><div><h2 className="text-lg font-black">Anki flashcards</h2><p className="text-xs text-slate-500">Choose any card count, preview the results, and export an Anki-compatible TSV.</p></div><button onClick={()=>setOpen(false)} aria-label="Close"><X className="w-5 h-5"/></button></header>
         <div className="mt-4 flex flex-wrap gap-2 items-center">
+          <label className="text-xs font-bold" htmlFor="anki-count">Number of cards</label>
+          <input id="anki-count" type="number" min="1" step="1" inputMode="numeric" value={cardCount} onChange={e=>setCardCount(e.target.value)} className="w-24 rounded-lg border bg-white dark:bg-slate-900 dark:border-slate-700 px-3 py-2 text-sm" aria-label="Number of Anki cards to generate" />
           <label className="text-xs font-bold" htmlFor="anki-scope">Scope</label>
           <select id="anki-scope" value={scope} onChange={e=>setScope(e.target.value as Scope)} className="rounded-lg border bg-white dark:bg-slate-900 dark:border-slate-700 px-3 py-2 text-sm">
             <option value="selected">Selected text</option><option value="subtopic">Selected subtopic</option><option value="main">Main topic</option><option value="all">All topics</option>
           </select>
           {scope==="subtopic" && <select aria-label="Subtopic" value={topicId} onChange={e=>setTopicId(e.target.value)} className="rounded-lg border bg-white dark:bg-slate-900 dark:border-slate-700 px-3 py-2 text-sm max-w-full">{topics.map(topic=><option key={topic.id} value={topic.id}>{topic.name}</option>)}</select>}
-          <button disabled={loading} onClick={()=>void createCards()} className="ml-auto inline-flex items-center gap-2 rounded-lg bg-indigo-600 text-white px-4 py-2 text-xs font-bold disabled:opacity-50">{loading?<Loader2 className="w-4 h-4 animate-spin"/>:<BookOpen className="w-4 h-4"/>}{loading?"Generating…":"Generate 20 cards"}</button>
+          <button disabled={loading} onClick={()=>void createCards()} className="ml-auto inline-flex items-center gap-2 rounded-lg bg-indigo-600 text-white px-4 py-2 text-xs font-bold disabled:opacity-50">{loading?<Loader2 className="w-4 h-4 animate-spin"/>:<BookOpen className="w-4 h-4"/>}{loading?(generationProgress || "Generating…"):`Generate ${cardCount || "0"} cards`}</button>
         </div>
         {error && <p role="alert" className="mt-3 text-sm text-rose-600">{error}</p>}
         {cards.length>0 && <div className="mt-5">
