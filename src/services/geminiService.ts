@@ -933,3 +933,62 @@ Ensure the output is 100% valid stringified JSON. Do not wrap in markdown or cod
   return parsed as { htmlContinuation: string; newMcqs: MCQ[] };
 }
 
+
+
+export interface AnkiFlashcard {
+  front: string;
+  back: string;
+}
+
+/** Create Anki-ready basic cards from the supplied lesson scope. */
+export async function generateAnkiFlashcards(
+  noteTitle: string,
+  sourceContent: string,
+  count: number = 20
+): Promise<AnkiFlashcard[]> {
+  const source = localStorage.getItem("juxa_api_source") || "builtin";
+  const prompt = `Create exactly ${count} high-quality Anki Basic flashcards grounded ONLY in the source material below.
+Lesson: ${noteTitle}
+Requirements:
+- Each card has a concise, unambiguous front (question or recall cue) and a useful back (answer).
+- Test core definitions, principles, relationships, distinctions, steps, and equations where applicable.
+- Avoid duplicates, vague prompts, trivial facts, and unsupported additions.
+- Keep LaTeX in standard Anki-friendly text form; do not include HTML wrappers.
+- Return valid JSON only as {"cards":[{"front":"...","back":"..."}]}.
+SOURCE MATERIAL:
+${sourceContent.slice(0, 24000)}`;
+
+  let jsonText = "";
+  if (source === "openrouter") {
+    const key = localStorage.getItem("juxa_openrouter_key");
+    const model = localStorage.getItem("juxa_openrouter_model") || "google/gemini-2.5-pro";
+    if (!key || !key.trim()) throw new Error("OpenRouter API Key is missing. Add it in settings.");
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}`, "HTTP-Referer": window.location.origin, "X-Title": "Juxa Anki Cards" },
+      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], response_format: { type: "json_object" } })
+    });
+    if (!response.ok) throw new Error(`OpenRouter returned status ${response.status}`);
+    const data = await response.json();
+    jsonText = data.choices?.[0]?.message?.content || "";
+  } else {
+    const response = await ai.models.generateContent({
+      model: getBuiltinModel(),
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: { cards: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { front: { type: Type.STRING }, back: { type: Type.STRING } }, required: ["front", "back"] } } },
+          required: ["cards"]
+        }
+      }
+    });
+    jsonText = response.text || "";
+  }
+  const parsed = JSON.parse(cleanJsonResponse(jsonText)) as { cards: AnkiFlashcard[] };
+  if (!Array.isArray(parsed.cards) || parsed.cards.length === 0 || parsed.cards.some(card => !card.front?.trim() || !card.back?.trim())) {
+    throw new Error("The AI returned an invalid flashcard set. Please try again.");
+  }
+  return parsed.cards.slice(0, count);
+}
